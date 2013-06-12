@@ -1,6 +1,6 @@
 # some other useful imports
-import datetime, os, shlex, sys, time
-# path to DoX core files, amend as necessary
+import datetime, os, shlex, sys, time, webbrowser
+# add DoX core to path
 sys.path.append("dox")
 # main class import
 from dox import *
@@ -16,6 +16,8 @@ class worker(QtCore.QThread):
         self.dox.loadTasks()
         # set last read time to now
         self.fileLastMod = datetime.datetime.now()
+        # trigger refresh for list window
+        self.emit(QtCore.SIGNAL("refresh()"))
         # empty list of past notifications
         self.notified = []
     def run(self):
@@ -26,6 +28,8 @@ class worker(QtCore.QThread):
                 self.dox.loadTasks()
                 # update last mod. time
                 self.fileLastMod = self.dox.tasksFileLastMod()
+                # trigger refresh for list window
+                self.emit(QtCore.SIGNAL("refresh()"))
             now = datetime.datetime.now()
             today = datetime.datetime.combine(now.date(), datetime.time())
             # loop all tasks
@@ -92,7 +96,7 @@ class add(QtGui.QMainWindow):
         self.dueTimeEdit = QtGui.QLineEdit()
         self.dueTimeEdit.setPlaceholderText("13:30")
         self.repeatCombo = QtGui.QComboBox()
-        self.repeatCombo.addItems(["None", "Daily", "Weekly", "Fortnightly", "Custom..."])
+        self.repeatCombo.addItems(["No repeat", "Daily", "Weekly", "Fortnightly", "Custom..."])
         self.repeatEdit = QtGui.QLineEdit()
         self.repeatEdit.setEnabled(False)
         self.repeatCheck = QtGui.QCheckBox("From done?")
@@ -136,8 +140,8 @@ class add(QtGui.QMainWindow):
         # call main handler, knowing the time was edited
         self.dueEditFinished(False)
     def dueEditFinished(self, isDate):
-        date = self.dueDateEdit.text()
-        time = self.dueTimeEdit.text()
+        date = str(self.dueDateEdit.text())
+        time = str(self.dueTimeEdit.text())
         # time set but no date
         if time and not date:
             # if removed the date, also remove the time
@@ -156,6 +160,9 @@ class add(QtGui.QMainWindow):
             if due[1]:
                 # set to actual time string
                 self.dueTimeEdit.setText(due[0].strftime("%H:%M:%S"))
+            else:
+                # invalid, clear field
+                self.dueTimeEdit.setText("")
         # invalid, clear fields
         else:
             self.dueDateEdit.setText("")
@@ -182,7 +189,7 @@ class add(QtGui.QMainWindow):
             # update string field
             self.fieldsUp()
     def repeatEditFinished(self):
-        value = self.repeatEdit.text()
+        value = str(self.repeatEdit.text())
         # test if value is valid
         if value:
             try:
@@ -210,7 +217,7 @@ class add(QtGui.QMainWindow):
     def tagsEditFinished(self):
         try:
             # attempt to split tags
-            shlex.split(self.tagsEdit.text())
+            shlex.split(str(self.tagsEdit.text()))
         except ValueError:
             # can't parse, refocus until complete
             self.tagsEdit.setFocus()
@@ -219,27 +226,29 @@ class add(QtGui.QMainWindow):
             # clear status of repeat edit if there is one
             self.repeatEditFinished()
         # fetch values
-        title = self.titleEdit.text()
+        title = str(self.titleEdit.text())
         desc = self.descEdit.toPlainText()
         pri = self.priCombo.currentIndex()
         due = None
+        dueStr = str(self.dueDateEdit.text())
         # assuming a valid date (as parsed in dueEditFinished)
-        if self.dueDateEdit.text():
-            due = parseDateTime(self.dueDateEdit.text(), self.dueTimeEdit.text())
+        if dueStr:
+            due = parseDateTime(dueStr, str(self.dueTimeEdit.text()))
         repeat = None
+        repeatStr = str(self.repeatEdit.text())
         # assuming valid (either set from combo or parsed in repeatEditFinished)
-        if self.repeatEdit.text():
-            repeat = (int(self.repeatEdit.text()), not self.repeatCheck.isChecked())
+        if repeatStr.isdigit():
+            repeat = (int(repeatStr), not self.repeatCheck.isChecked())
         try:
             # attempt to split tags
-            tags = shlex.split(self.tagsEdit.text())
+            tags = shlex.split(str(self.tagsEdit.text()))
         except ValueError:
             # can't parse, don't set
             tags = []
         self.stringEdit.setText(formatArgs(title, desc, pri, due, repeat, tags))
     def fieldsDown(self):
         try:
-            args = shlex.split(self.stringEdit.text())
+            args = shlex.split(str(self.stringEdit.text()))
         except:
             print("Parse error!")
             args = []
@@ -271,7 +280,7 @@ class add(QtGui.QMainWindow):
         self.tagsEdit.setText(" ".join([quote(x) for x in tags]))
     def addTask(self):
         # fetch string and parse
-        string = self.stringEdit.text()
+        string = str(self.stringEdit.text())
         args = parseArgs(shlex.split(string))
         if len(args):
             # expand args tuple when passed to addTask
@@ -300,15 +309,99 @@ class add(QtGui.QMainWindow):
         self.closeWindow()
         event.ignore()
 
+class list(QtGui.QMainWindow):
+    def __init__(self, dox, worker):
+        QtGui.QMainWindow.__init__(self)
+        self.dox = dox
+        self.worker = worker
+        self.setWindowTitle("DoX: List tasks")
+        self.setWindowIcon(QtGui.QIcon("check.png"))
+        self.resize(600, 350)
+        self.setGeometry(QtGui.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter, self.size(),
+                                                  QtGui.QDesktopWidget().availableGeometry()))
+        # main widget
+        self.mainWidget = QtGui.QWidget()
+        self.mainWidget.setLayout(self.buildMain())
+        self.setCentralWidget(self.mainWidget)
+        # signal listeners
+        self.connect(self.worker, QtCore.SIGNAL("refresh()"), self.refresh)
+    def buildMain(self):
+        # controls
+        self.taskTable = QtGui.QTableWidget()
+        self.taskTable.setColumnCount(5)
+        self.taskTable.setHorizontalHeaderLabels(["Task", "Priority", "Due", "Repeat", "Tags"])
+        self.taskTable.setSortingEnabled(True)
+        self.doneTable = QtGui.QTableWidget()
+        self.doneTable.setColumnCount(5)
+        self.doneTable.setHorizontalHeaderLabels(["Task", "Priority", "Due", "Repeat", "Tags"])
+        self.doneTable.setSortingEnabled(True)
+        # tabs
+        tabs = QtGui.QTabWidget()
+        taskTab = QtGui.QWidget()	
+        doneTab = QtGui.QWidget()
+        tabs.addTab(taskTab, "To-do")
+        tabs.addTab(doneTab, "Done")
+        # layouts
+        taskLayout = QtGui.QVBoxLayout()
+        taskLayout.addWidget(self.taskTable)
+        doneLayout = QtGui.QVBoxLayout()
+        doneLayout.addWidget(self.doneTable)
+        taskTab.setLayout(taskLayout)
+        doneTab.setLayout(doneLayout)
+        self.mainLayout = QtGui.QVBoxLayout()
+        self.mainLayout.addWidget(tabs)
+        # return new layout
+        return self.mainLayout
+    def refresh(self):
+        # flush table
+        self.taskTable.setRowCount(0)
+        # reallocate table
+        self.taskTable.setRowCount(len(self.dox.tasks))
+        # loop through tasks
+        count = 0
+        for taskObj in self.dox.tasks:
+            # cell values
+            cells = [taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
+                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags)]
+            column = 0
+            for cell in cells:
+                # set each cell
+                self.taskTable.setItem(count, column, QtGui.QTableWidgetItem(cell))
+                column += 1
+            count += 1
+        # flush table
+        self.doneTable.setRowCount(0)
+        # reallocate table
+        self.doneTable.setRowCount(len(self.dox.done))
+        # loop through done tasks
+        count = 0
+        for taskObj in self.dox.done:
+            # cell values
+            cells = [taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
+                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags)]
+            column = 0
+            for cell in cells:
+                # set each cell
+                self.doneTable.setItem(count, column, QtGui.QTableWidgetItem(cell))
+                column += 1
+            count += 1
+        # resize columns
+        self.taskTable.resizeColumnsToContents()
+        self.doneTable.resizeColumnsToContents()
+    def closeEvent(self, event):
+        # don't actually close - window is reused
+        self.hide()
+        event.ignore()
+
 class tray(QtGui.QSystemTrayIcon):
     def __init__(self, dox):
         QtGui.QSystemTrayIcon.__init__(self)
         # components
-        self.dox = dox
         self.setIcon(QtGui.QIcon("check.png"))
         self.setToolTip("DoX")
         self.menu = QtGui.QMenu()
         self.addAction = self.menu.addAction("Add task...")
+        self.listAction = self.menu.addAction("List tasks")
         self.menu.addSeparator()
         self.tasksAction = self.menu.addAction("Edit tasks.txt")
         self.doneAction = self.menu.addAction("Edit done.txt")
@@ -316,20 +409,23 @@ class tray(QtGui.QSystemTrayIcon):
         self.exitAction = self.menu.addAction("Exit DoX")
         self.menu.setDefaultAction(self.addAction)
         self.setContextMenu(self.menu)
-        self.background = worker(dox)
+        # construct other features
+        self.dox = dox
+        self.worker = worker(dox)
         self.addWindow = add(dox)
+        self.listWindow = list(dox, self.worker)
         # connections
         self.activated.connect(self.activate)
-        self.messageClicked.connect(self.openShell)
         self.addAction.triggered.connect(self.addTask)
+        self.listAction.triggered.connect(self.listTasks)
         self.tasksAction.triggered.connect(self.editTasks)
         self.doneAction.triggered.connect(self.editDone)
         self.exitAction.triggered.connect(QtGui.QApplication.quit)
         # signal listeners
-        self.connect(self.background, QtCore.SIGNAL("warning(QString, QString)"), self.warning)
+        self.connect(self.worker, QtCore.SIGNAL("warning(QString, QString)"), self.warning)
         self.connect(self.addWindow, QtCore.SIGNAL("info(QString, QString)"), self.info)
         # start polling
-        self.background.start()
+        self.worker.start()
         # show tray icon
         self.show()
     def addTask(self):
@@ -337,12 +433,17 @@ class tray(QtGui.QSystemTrayIcon):
         self.addWindow.show()
         self.addWindow.raise_()
         self.addWindow.stringEdit.setFocus()
+    def listTasks(self):
+        # bring window to front
+        self.listWindow.show()
+        self.listWindow.raise_()
+        self.listWindow.refresh()
     def editTasks(self):
         # open a text editor with tasks.txt
-        os.system("notepad " + os.path.join(os.path.expanduser("~"), "DoX", "tasks.txt"))
+        webbrowser.open(os.path.join(os.path.expanduser("~"), "DoX", "tasks.txt"))
     def editDone(self):
         # open a text editor with tasks.txt
-        os.system("notepad " + os.path.join(os.path.expanduser("~"), "DoX", "done.txt"))
+        webbrowser.open(os.path.join(os.path.expanduser("~"), "DoX", "done.txt"))
     def info(self, title, desc):
         # information popup
         self.showMessage("DoX: " + title, desc)
