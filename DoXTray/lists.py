@@ -1,5 +1,5 @@
 # some other useful imports
-import sys
+import html, sys
 # add DoX core to path
 sys.path.append("dox")
 # main class import
@@ -8,13 +8,14 @@ from dox import *
 from PyQt4 import QtCore, QtGui
 
 class lists(QtGui.QMainWindow):
+    selectChangeOverride = False
     def __init__(self, dox, worker):
         QtGui.QMainWindow.__init__(self)
         self.dox = dox
         self.worker = worker
         self.setWindowTitle("DoX: List tasks")
         self.setWindowIcon(QtGui.QIcon("check.png"))
-        self.resize(600, 350)
+        self.resize(1040, 600)
         self.setGeometry(QtGui.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter, self.size(),
                                                   QtGui.QDesktopWidget().availableGeometry()))
         # main widget
@@ -26,19 +27,34 @@ class lists(QtGui.QMainWindow):
     def buildMain(self):
         # controls
         self.taskTable = QtGui.QTableWidget()
-        self.taskTable.setColumnCount(5)
-        self.taskTable.setHorizontalHeaderLabels(["Task", "Priority", "Due", "Repeat", "Tags"])
-        self.taskTable.setSortingEnabled(True)
+        self.taskTable.setColumnCount(6)
+        self.taskTable.setHorizontalHeaderLabels(["#", "Task", "!", "Due", "Repeat", "Tags"])
+        self.taskTable.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.taskTable.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.taskTable.setShowGrid(False)
+        # self.taskTable.setSortingEnabled(True)
+        self.taskTable.verticalHeader().setVisible(False)
         self.doneTable = QtGui.QTableWidget()
-        self.doneTable.setColumnCount(5)
-        self.doneTable.setHorizontalHeaderLabels(["Task", "Priority", "Due", "Repeat", "Tags"])
-        self.doneTable.setSortingEnabled(True)
+        self.doneTable.setColumnCount(6)
+        self.doneTable.setHorizontalHeaderLabels(["#", "Task", "!", "Due", "Repeat", "Tags"])
+        self.doneTable.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.doneTable.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.doneTable.setShowGrid(False)
+        # self.doneTable.setSortingEnabled(True)
+        self.doneTable.verticalHeader().setVisible(False)
+        self.taskInfo = QtGui.QLabel("Select a task on the left.")
+        self.taskInfo.setAlignment(QtCore.Qt.AlignCenter)
+        self.taskInfo.setWordWrap(True)
         # tabs
-        tabs = QtGui.QTabWidget()
-        taskTab = QtGui.QWidget()	
+        listTabs = QtGui.QTabWidget()
+        taskTab = QtGui.QWidget()
         doneTab = QtGui.QWidget()
-        tabs.addTab(taskTab, "To-do")
-        tabs.addTab(doneTab, "Done")
+        listTabs.addTab(taskTab, "To-do")
+        listTabs.addTab(doneTab, "Done")
+        infoTabs = QtGui.QTabWidget()
+        infoTab = QtGui.QWidget()
+        infoTabs.addTab(infoTab, "Task")
+        infoTabs.setMaximumWidth(250)
         # layouts
         taskLayout = QtGui.QVBoxLayout()
         taskLayout.addWidget(self.taskTable)
@@ -46,8 +62,15 @@ class lists(QtGui.QMainWindow):
         doneLayout.addWidget(self.doneTable)
         taskTab.setLayout(taskLayout)
         doneTab.setLayout(doneLayout)
-        self.mainLayout = QtGui.QVBoxLayout()
-        self.mainLayout.addWidget(tabs)
+        infoLayout = QtGui.QVBoxLayout()
+        infoLayout.addWidget(self.taskInfo)
+        infoTab.setLayout(infoLayout)
+        self.mainLayout = QtGui.QHBoxLayout()
+        self.mainLayout.addWidget(listTabs)
+        self.mainLayout.addWidget(infoTabs)
+        # connections
+        self.taskTable.itemSelectionChanged.connect(self.taskSelectionChanged)
+        self.doneTable.itemSelectionChanged.connect(self.doneSelectionChanged)
         # return new layout
         return self.mainLayout
     def refresh(self):
@@ -59,7 +82,7 @@ class lists(QtGui.QMainWindow):
         count = 0
         for taskObj in self.dox.tasks:
             # cell values
-            cells = [taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
+            cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
                      prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags)]
             column = 0
             for cell in cells:
@@ -67,6 +90,8 @@ class lists(QtGui.QMainWindow):
                 self.taskTable.setItem(count, column, QtGui.QTableWidgetItem(cell))
                 column += 1
             count += 1
+        # resize columns
+        self.taskTable.resizeColumnsToContents()
         # flush table
         self.doneTable.setRowCount(0)
         # reallocate table
@@ -75,7 +100,7 @@ class lists(QtGui.QMainWindow):
         count = 0
         for taskObj in self.dox.done:
             # cell values
-            cells = [taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
+            cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
                      prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags)]
             column = 0
             for cell in cells:
@@ -84,8 +109,40 @@ class lists(QtGui.QMainWindow):
                 column += 1
             count += 1
         # resize columns
-        self.taskTable.resizeColumnsToContents()
         self.doneTable.resizeColumnsToContents()
+    def taskSelectionChanged(self):
+        self.selectionChanged(True)
+    def doneSelectionChanged(self):
+        self.selectionChanged(False)
+    def selectionChanged(self, isTasks):
+        # if not setting selection programatically
+        if not self.selectChangeOverride:
+            # select from correct table
+            table = self.taskTable if isTasks else self.doneTable
+            # list of rows selected
+            rows = []
+            for i in table.selectedIndexes():
+                if i.row() not in rows:
+                    rows.append(i.row())
+            # nothing selected
+            if len(rows) == 0:
+                self.taskInfo.setText("Select a task on the left.")
+            # one row selected, show details
+            elif len(rows) == 1:
+                id = table.item(rows[0], 0).text()
+                if isTasks:
+                    taskObj = self.dox.getTask(int(id))
+                else:
+                    taskObj = self.dox.getDone(int(id))
+                pris = ["Low", "Medium", "High", "Critical"]
+                self.taskInfo.setText("""<b>{}</b><br/>
+<br/>
+{}Priority: {} ({}){}{}{}""".format(taskObj.title, html.escape(taskObj.desc).replace("\n", "<br/>\n") + "<br/>\n<br/>\n" if taskObj.desc else "",
+                       pris[taskObj.pri], taskObj.pri, "<br/>\nDue: " + prettyDue(taskObj.due) if taskObj.due else "",
+                       "<br/>\nRepeat: " + prettyRepeat(taskObj.repeat) if taskObj.repeat else "", "<br/>\n<br/>\n#" + " #".join(taskObj.tags) if taskObj.tags else ""))
+            # multiple rows selected
+            else:
+                self.taskInfo.setText("{} tasks selected.".format(len(rows)))
     def closeEvent(self, event):
         # don't actually close - window is reused
         self.hide()
