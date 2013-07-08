@@ -50,7 +50,7 @@ class add(QtGui.QMainWindow):
         self.descEdit = QtGui.QTextEdit()
         self.descEdit.setAcceptRichText(False)
         self.priCombo = QtGui.QComboBox()
-        self.priCombo.addItems(["0 (Low)", "1 (Medium)", "2 (High)", "3 (Critical)"])
+        self.priCombo.addItems(["Low (0)", "Medium (1)", "High (2)", "Critical (3)"])
         self.dueDateEdit = QtGui.QLineEdit()
         self.dueDateEdit.setPlaceholderText("tomorrow")
         self.dueTimeEdit = QtGui.QLineEdit()
@@ -89,7 +89,6 @@ class add(QtGui.QMainWindow):
         self.repeatEdit.editingFinished.connect(self.repeatEditFinished)
         self.repeatCombo.currentIndexChanged.connect(self.repeatComboChanged)
         self.repeatCheck.stateChanged.connect(self.fieldsUp)
-        self.tagsEdit.textEdited.connect(self.fieldsUp)
         self.tagsEdit.editingFinished.connect(self.tagsEditFinished)
         # return new layout
         return fieldsLayout
@@ -130,6 +129,10 @@ class add(QtGui.QMainWindow):
         # update string field
         self.fieldsUp()
     def repeatComboChanged(self, index):
+        # set due to today if enabling repeat and no due date
+        if index and not self.dueDateEdit.text():
+            self.dueDateEdit.setText("today")
+            self.dueEditFinished(True)
         # enable edit field if combo on custom
         self.repeatEdit.setEnabled(index == 4)
         self.repeatEdit.setText("")
@@ -178,9 +181,26 @@ class add(QtGui.QMainWindow):
         try:
             # attempt to split tags
             shlex.split(str(self.tagsEdit.text()))
+            # clear error highlight if previously set
+            self.tagsEdit.setStyleSheet("")
+            self.tagsEdit.setToolTip("")
         except ValueError:
             # can't parse, refocus until complete
             self.tagsEdit.setFocus()
+            # highlight error
+            self.tagsEdit.setStyleSheet("background-color: #F88;")
+            # attempt to guess fault with string
+            string = self.tagsEdit.text()
+            if string.count("\"") % 2 == 1:
+                self.tagsEdit.setToolTip("Unbalanced double quote?")
+            elif string.count("'") % 2 == 1:
+                self.tagsEdit.setToolTip("Unbalanced single quote?")
+            elif string.count("\\") % 2 == 1:
+                self.tagsEdit.setToolTip("Unbalanced backslash?")
+            # don't process any further
+            return
+        # update string field
+        self.fieldsUp()
     def fieldsUp(self, isRepeat=False):
         if not isRepeat:
             # clear status of repeat edit if there is one
@@ -208,35 +228,60 @@ class add(QtGui.QMainWindow):
         self.stringEdit.setText(formatArgs(title, desc, pri, due, repeat, tags))
     def fieldsDown(self):
         try:
+            # parse with shlex
             args = shlex.split(str(self.stringEdit.text()))
+            # clear error highlight if previously set
+            self.stringEdit.setStyleSheet("")
+            self.stringEdit.setToolTip("")
         except:
-            print("Parse error!")
-            args = []
+            # can't parse, refocus until complete
+            self.stringEdit.setFocus()
+            # highlight error
+            self.stringEdit.setStyleSheet("background-color: #F88;")
+            # attempt to guess fault with string
+            string = self.stringEdit.text()
+            if string.count("\"") % 2 == 1:
+                self.stringEdit.setToolTip("Unbalanced double quote?")
+            elif string.count("'") % 2 == 1:
+                self.stringEdit.setToolTip("Unbalanced single quote?")
+            elif string.count("\\") % 2 == 1:
+                self.stringEdit.setToolTip("Unbalanced backslash?")
+            # don't process any further
+            return
+        # process arguments with standard parser
         title, desc, pri, due, repeat, tags = parseArgs(args)
+        # set basic fields
         self.titleEdit.setText(title)
         self.descEdit.setText(desc)
         self.priCombo.setCurrentIndex(pri)
         self.dueDateEdit.setText("")
         self.dueTimeEdit.setText("")
         if due:
+            # set full date due
             self.dueDateEdit.setText(due[0].strftime("%d/%m/%Y"))
             self.dueTimeEdit.setText(due[0].strftime("%H:%M:%S" if due[1] else ""))
         self.repeatCombo.setCurrentIndex(0)
         self.repeatEdit.setText("")
         self.repeatEdit.setEnabled(False)
         if repeat:
+            # use daily alias
             if repeat[0] == 1:
                 self.repeatCombo.setCurrentIndex(1)
+            # use weekly alias
             elif repeat[0] == 7:
                 self.repeatCombo.setCurrentIndex(2)
+            # use fortnightly alias
             elif repeat[0] == 14:
                 self.repeatCombo.setCurrentIndex(3)
+            # custom, set edit field enabled
             else:
                 self.repeatCombo.setCurrentIndex(4)
                 self.repeatEdit.setEnabled(True)
+            # from done unless set otherwise
             self.repeatCheck.setChecked(True)
             if repeat[1]:
                 self.repeatCheck.setChecked(False)
+        # remove hashes and re-quote
         self.tagsEdit.setText(" ".join([quote(x) for x in tags]))
     def addTask(self):
         # fetch string and parse
@@ -247,13 +292,14 @@ class add(QtGui.QMainWindow):
             self.dox.addTask(*args)
             # resave
             self.dox.saveTasks()
+            # trigger refresh for list window
+            self.emit(QtCore.SIGNAL("refresh()"))
             # show notification
             self.emit(QtCore.SIGNAL("info(QString, QString)"), args[0], "Task added successfully.")
         # hide window again
         self.closeWindow()
     def closeWindow(self):
         # clear input and hide
-        self.stringEdit.setText("")
         self.titleEdit.setText("")
         self.descEdit.setText("")
         self.priCombo.setCurrentIndex(0)
@@ -263,6 +309,7 @@ class add(QtGui.QMainWindow):
         self.repeatEdit.setText("")
         self.repeatCheck.setChecked(True)
         self.tagsEdit.setText("")
+        self.stringEdit.setText("")
         self.hide()
     def closeEvent(self, event):
         # don't actually close - window is reused
