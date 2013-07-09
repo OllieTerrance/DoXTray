@@ -75,14 +75,14 @@ class lists(QtGui.QMainWindow):
         self.infoContent.setAlignment(QtCore.Qt.AlignCenter)
         self.infoContent.setOpenExternalLinks(True)
         self.infoContent.setWordWrap(True)
-        self.infoDone = QtGui.QPushButton("Done")
-        self.infoDone.setEnabled(False)
-        self.infoMove = QtGui.QPushButton("Move")
-        self.infoMove.setEnabled(False)
-        self.infoEdit = QtGui.QPushButton("Edit")
-        self.infoEdit.setEnabled(False)
-        self.infoDelete = QtGui.QPushButton("Delete")
-        self.infoDelete.setEnabled(False)
+        self.infoDoneButton = QtGui.QPushButton("Done")
+        self.infoDoneButton.setEnabled(False)
+        self.infoMoveButton = QtGui.QPushButton("Move")
+        self.infoMoveButton.setEnabled(False)
+        self.infoEditButton = QtGui.QPushButton("Edit")
+        self.infoEditButton.setEnabled(False)
+        self.infoDeleteButton = QtGui.QPushButton("Delete")
+        self.infoDeleteButton.setEnabled(False)
         self.filterPriCheck = QtGui.QCheckBox("Restrict list to tasks with minimum priority:")
         self.filterPriCombo = QtGui.QComboBox()
         self.filterPriCombo.addItems(["Medium (1)", "High (2)", "Critical (3)"])
@@ -101,10 +101,10 @@ class lists(QtGui.QMainWindow):
         self.controlTabs.setMaximumWidth(250)
         # layouts
         cmdLayout = QtGui.QHBoxLayout()
-        cmdLayout.addWidget(self.infoDone)
-        cmdLayout.addWidget(self.infoMove)
-        cmdLayout.addWidget(self.infoEdit)
-        cmdLayout.addWidget(self.infoDelete)
+        cmdLayout.addWidget(self.infoDoneButton)
+        cmdLayout.addWidget(self.infoMoveButton)
+        cmdLayout.addWidget(self.infoEditButton)
+        cmdLayout.addWidget(self.infoDeleteButton)
         infoLayout = QtGui.QVBoxLayout()
         infoLayout.addWidget(self.infoContent)
         infoLayout.addLayout(cmdLayout)
@@ -119,6 +119,10 @@ class lists(QtGui.QMainWindow):
         filterLayout.addWidget(self.filterTagEdit)
         filterTab.setLayout(filterLayout)
         # connections
+        self.infoDoneButton.clicked.connect(self.infoDoneClicked)
+        self.infoMoveButton.clicked.connect(self.infoMoveClicked)
+        self.infoEditButton.clicked.connect(self.infoEditClicked)
+        self.infoDeleteButton.clicked.connect(self.infoDeleteClicked)
         self.filterPriCheck.toggled.connect(self.filterPriToggled)
         self.filterTagCheck.toggled.connect(self.filterTagToggled)
         # return new tabs
@@ -178,10 +182,10 @@ class lists(QtGui.QMainWindow):
             if len(rows) == 0:
                 self.infoContent.setText("Select a task on the left.")
                 # disable all controls
-                self.infoDone.setEnabled(False)
-                self.infoMove.setEnabled(False)
-                self.infoEdit.setEnabled(False)
-                self.infoDelete.setEnabled(False)
+                self.infoDoneButton.setEnabled(False)
+                self.infoMoveButton.setEnabled(False)
+                self.infoEditButton.setEnabled(False)
+                self.infoDeleteButton.setEnabled(False)
             # one row selected, show details
             elif len(rows) == 1:
                 id = table.item(rows[0], 0).text()
@@ -213,26 +217,36 @@ class lists(QtGui.QMainWindow):
                                                                                                "<br/>Due: " + prettyDue(taskObj.due) if taskObj.due else "",
                                                                                                "<br/>Repeat: " + prettyRepeat(taskObj.repeat) if taskObj.repeat else "",
                                                                                                "<br/><br/>" + "  ".join(tagWrap) if tagWrap else ""))
-                # enable all controls
-                self.infoDone.setEnabled(True)
-                self.infoMove.setEnabled(True)
-                self.infoEdit.setEnabled(True)
-                self.infoDelete.setEnabled(True)
+                # enable multiple delete and completion, plus others if tasks (not done)
+                self.infoDoneButton.setEnabled(True)
+                self.infoMoveButton.setEnabled(isTasks)
+                self.infoEditButton.setEnabled(isTasks)
+                self.infoDeleteButton.setEnabled(True)
             # multiple rows selected
             else:
                 self.infoContent.setText("{} tasks selected.".format(len(rows)))
-                # only enable multiple delete and competion
-                self.infoDone.setEnabled(True)
-                self.infoMove.setEnabled(False)
-                self.infoEdit.setEnabled(False)
-                self.infoDelete.setEnabled(True)
+                # only enable multiple delete and completion
+                self.infoDoneButton.setEnabled(True)
+                self.infoMoveButton.setEnabled(False)
+                self.infoEditButton.setEnabled(False)
+                self.infoDeleteButton.setEnabled(True)
     def switchTab(self):
         # toggle tab index (1 - 1 = 0, 1 - 0 = 1)
         self.listTabs.setCurrentIndex(1 - self.listTabs.currentIndex())
     def tabSwitched(self, index):
         # clear selection on other table (i.e. not new selected one) on switch
-        table = self.taskTable if index == 1 else self.doneTable
-        table.clearSelection()
+        otherTable = self.taskTable if index == 1 else self.doneTable
+        otherTable.clearSelection()
+        # done tasks show an Undo button
+        self.infoDoneButton.setText("Undo" if index == 1 else "Done")
+    def infoDoneClicked(self):
+        pass
+    def infoMoveClicked(self):
+        pass
+    def infoEditClicked(self):
+        pass
+    def infoDeleteClicked(self):
+        pass
     def filterPriToggled(self, checked):
         self.filterPriCombo.setEnabled(checked)
     def filterTagToggled(self, checked):
