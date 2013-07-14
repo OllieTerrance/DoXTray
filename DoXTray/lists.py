@@ -137,7 +137,7 @@ class lists(QtGui.QMainWindow):
         for taskObj in self.dox.tasks:
             # cell values
             cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
-                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags)]
+                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
             column = 0
             for cell in cells:
                 # set each cell
@@ -155,7 +155,7 @@ class lists(QtGui.QMainWindow):
         for taskObj in self.dox.done:
             # cell values
             cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
-                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags)]
+                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
             column = 0
             for cell in cells:
                 # set each cell
@@ -171,15 +171,10 @@ class lists(QtGui.QMainWindow):
     def selectionChanged(self, isTasks):
         # if not setting selection programatically
         if not self.selectChangeOverride:
-            # select from correct table
-            table = self.taskTable if isTasks else self.doneTable
-            # list of rows selected
-            rows = []
-            for i in table.selectedIndexes():
-                if i.row() not in rows:
-                    rows.append(i.row())
+            # get selected IDs
+            ids = self.tasksFromSelection()
             # nothing selected
-            if len(rows) == 0:
+            if len(ids) == 0:
                 self.infoContent.setText("Select a task on the left.")
                 # disable all controls
                 self.infoDoneButton.setEnabled(False)
@@ -187,13 +182,10 @@ class lists(QtGui.QMainWindow):
                 self.infoEditButton.setEnabled(False)
                 self.infoDeleteButton.setEnabled(False)
             # one row selected, show details
-            elif len(rows) == 1:
-                id = table.item(rows[0], 0).text()
+            elif len(ids) == 1:
+                id = ids[0]
                 # fetch from correct table
-                if isTasks:
-                    taskObj = self.dox.getTask(int(id))
-                else:
-                    taskObj = self.dox.getDone(int(id))
+                taskObj = self.dox.getTask(int(id), isTasks)
                 pris = ["Low", "Medium", "High", "Critical"]
                 # convert a URL into an <a> tag with correct link
                 def linkify(match):
@@ -224,7 +216,7 @@ class lists(QtGui.QMainWindow):
                 self.infoDeleteButton.setEnabled(True)
             # multiple rows selected
             else:
-                self.infoContent.setText("{} tasks selected.".format(len(rows)))
+                self.infoContent.setText("{} tasks selected.".format(len(ids)))
                 # only enable multiple delete and completion
                 self.infoDoneButton.setEnabled(True)
                 self.infoMoveButton.setEnabled(False)
@@ -246,11 +238,35 @@ class lists(QtGui.QMainWindow):
     def infoEditClicked(self):
         pass
     def infoDeleteClicked(self):
-        pass
+        # get selected IDs
+        ids = self.tasksFromSelection()
+        # confirm deletion
+        confirm = QtGui.QMessageBox.question(self, "DoX: Delete task", "Are you sure you want to delete {}?".format("this task" if len(ids) == 1 else "these {} tasks".format(len(ids))),
+                                             QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No)
+        if confirm == QtGui.QMessageBox.Yes:
+            # do in reverse to avoid ID conflicts
+            for id in sorted(ids, reverse=True):
+                self.dox.deleteTask(id, self.listTabs.currentIndex() == 0)
+            # resave
+            self.dox.saveTasks()
+            # refresh list
+            self.refresh()
     def filterPriToggled(self, checked):
         self.filterPriCombo.setEnabled(checked)
     def filterTagToggled(self, checked):
         self.filterTagEdit.setEnabled(checked)
+    def tasksFromSelection(self):
+        # select from correct table
+        table = self.doneTable if self.listTabs.currentIndex() == 1 else self.taskTable
+        # list of rows selected
+        rows = []
+        for i in table.selectedIndexes():
+            if i.row() not in rows:
+                rows.append(i.row())
+        # convert rows to IDs
+        ids = [int(table.item(rows[0], 0).text()) for x in rows]
+        # list of selected IDs
+        return ids
     @QtCore.pyqtSlot(QtCore.QUrl)
     def handleURL(self, url):
         # tag filter request
