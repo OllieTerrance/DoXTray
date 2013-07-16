@@ -232,7 +232,25 @@ class lists(QtGui.QMainWindow):
         # done tasks show an Undo button
         self.infoDoneButton.setText("Undo" if index == 1 else "Done")
     def infoDoneClicked(self):
-        pass
+        # get selected IDs
+        ids = self.tasksFromSelection()
+        # use correct table
+        isDone = self.listTabs.currentIndex() == 0
+        # confirm if changing multiple tasks
+        confirm = len(ids) == 1 or QtGui.QMessageBox.question(self, "DoX: {} tasks".format("Done" if isDone else "Undo"),
+                                                              "Are you sure you want to {}mark {} tasks as complete?".format("" if isDone else "un", len(ids)),
+                                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes
+        if confirm:
+            # do in reverse to avoid ID conflicts
+            for id in sorted(ids, reverse=True):
+                if isDone:
+                    self.dox.doneTask(id)
+                else:
+                    self.dox.undoTask(id)
+            # resave
+            self.dox.saveTasks()
+            # refresh list
+            self.refresh()
     def infoMoveClicked(self):
         pass
     def infoEditClicked(self):
