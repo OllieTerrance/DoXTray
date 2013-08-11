@@ -10,7 +10,7 @@ from lists import *
 # interface with PyQt
 from PyQt4 import QtCore, QtGui
 
-class worker(QtCore.QThread):
+class fileMonitor(QtCore.QThread):
     def __init__(self, dox):
         QtCore.QThread.__init__(self)
         # connect to API
@@ -21,8 +21,6 @@ class worker(QtCore.QThread):
         self.fileLastMod = datetime.datetime.now()
         # trigger refresh for list window
         self.emit(QtCore.SIGNAL("refresh()"))
-        # empty list of past notifications
-        self.notified = []
     def run(self):
         while True:
             # tasks list has been modified since last check
@@ -33,22 +31,48 @@ class worker(QtCore.QThread):
                 self.fileLastMod = self.dox.tasksFileLastMod()
                 # trigger refresh for list window
                 self.emit(QtCore.SIGNAL("refresh()"))
-            now = datetime.datetime.now()
-            today = datetime.datetime.combine(now.date(), datetime.time())
-            # loop all tasks
-            for taskObj in self.dox.tasks:
-                # if task is due now, and hasn't been notified about yet
-                if taskObj not in self.notified and taskObj.due and ((taskObj.due[1] and taskObj.due[0] < now) or (not taskObj.due[1] and taskObj.due[0] <= today)):
-                    # popup alert
-                    self.emit(QtCore.SIGNAL("warning(QString, QString)"), taskObj.title, (taskObj.desc if taskObj.desc else "Due now!"))
-                    # add to known notified list
-                    self.notified.append(taskObj)
-                    break
-            # remove tasks from notified that don't exist
-            self.notified = [x for x in self.notified if x in self.dox.tasks]
             # sleep for a bit
             time.sleep(5)
-        return
+
+class dueMonitor(QtCore.QThread):
+    def __init__(self, dox):
+        QtCore.QThread.__init__(self)
+        # connect to API
+        self.dox = dox
+        # empty list of past notifications
+        self.notified = []
+    def run(self):
+        while True:
+            now = datetime.datetime.now()
+            today = datetime.datetime.combine(now.date(), datetime.time())
+            noTasks = True
+            # remove tasks from notified that don't exist
+            self.notified = [x for x in self.notified if x[0] in self.dox.tasks]
+            # loop all tasks
+            for taskObj in self.dox.tasks:
+                # if task is due now
+                if taskObj.due and ((taskObj.due[1] and taskObj.due[0] < now) or (not taskObj.due[1] and taskObj.due[0] <= today)):
+                    # check it hasn't been notified recently
+                    ok = True
+                    for notify in self.notified:
+                        if notify[0] == taskObj:
+                            # if notified about in the last hour
+                            if notify[1] + datetime.timedelta(hours=1) > now:
+                                ok = False
+                            else:
+                                # remove previous record as new one will be added
+                                self.notified.remove(notify)
+                            break
+                    if ok:
+                        noTasks = False
+                        # popup alert
+                        self.emit(QtCore.SIGNAL("warning(QString, QString)"), taskObj.title, (taskObj.desc if taskObj.desc else "Due now!"))
+                        # add to known notified list
+                        self.notified.append((taskObj, now))
+                        # only do one for now
+                        break
+            # if nothing to notify about, sleep for a while
+            time.sleep(60 if noTasks else 10)
 
 class tray(QtGui.QSystemTrayIcon):
     def __init__(self, dox):
@@ -68,9 +92,10 @@ class tray(QtGui.QSystemTrayIcon):
         self.setContextMenu(self.menu)
         # construct other features
         self.dox = dox
-        self.worker = worker(dox)
+        self.fileMonitor = fileMonitor(dox)
+        self.dueMonitor = dueMonitor(dox)
         self.addWindow = add(dox)
-        self.listsWindow = lists(dox, self.worker)
+        self.listsWindow = lists(dox, self.fileMonitor)
         # connections
         self.activated.connect(self.activate)
         self.addAction.triggered.connect(self.addTask)
@@ -79,11 +104,12 @@ class tray(QtGui.QSystemTrayIcon):
         self.doneAction.triggered.connect(self.editDone)
         self.exitAction.triggered.connect(QtGui.QApplication.quit)
         # signal listeners
-        self.connect(self.worker, QtCore.SIGNAL("warning(QString, QString)"), self.warning)
+        self.connect(self.dueMonitor, QtCore.SIGNAL("warning(QString, QString)"), self.warning)
         self.connect(self.addWindow, QtCore.SIGNAL("info(QString, QString)"), self.info)
         self.connect(self.addWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         # start polling
-        self.worker.start()
+        self.fileMonitor.start()
+        self.dueMonitor.start()
         # show tray icon
         self.show()
     def addTask(self):
@@ -111,10 +137,10 @@ class tray(QtGui.QSystemTrayIcon):
     def activate(self, reason):
         # double-clicked
         if reason == 2:
-            self.addTask()
+            self.listTasks()
         # middle-clicked
         elif reason == 4:
-            self.openShell()
+            self.addTask()
 
 if __name__ == "__main__":
     # make Qt application
