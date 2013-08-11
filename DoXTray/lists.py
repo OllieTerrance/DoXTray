@@ -19,11 +19,12 @@ class lists(QtGui.QMainWindow):
         self.setGeometry(QtGui.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter, self.size(),
                                                   QtGui.QDesktopWidget().availableGeometry()))
         # main widget
-        splitWidget = QtGui.QSplitter()
-        splitWidget.addWidget(self.buildMain())
-        splitWidget.addWidget(self.buildSide())
+        self.splitWidget = QtGui.QSplitter()
+        self.splitWidget.addWidget(self.buildMain())
+        self.splitWidget.addWidget(self.buildSide())
+        self.splitMoved = False
         mainLayout = QtGui.QHBoxLayout()
-        mainLayout.addWidget(splitWidget)
+        mainLayout.addWidget(self.splitWidget)
         mainWidget = QtGui.QWidget()
         mainWidget.setLayout(mainLayout)
         self.setCentralWidget(mainWidget)

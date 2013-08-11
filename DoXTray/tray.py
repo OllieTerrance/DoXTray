@@ -121,6 +121,10 @@ class tray(QtGui.QSystemTrayIcon):
         # bring window to front
         self.listsWindow.show()
         self.listsWindow.raise_()
+        # set initial split position
+        if not self.listsWindow.splitMoved:
+            self.listsWindow.splitWidget.moveSplitter(675, 1)
+            self.listsWindow.splitMoved = True
         self.listsWindow.refresh()
     def editTasks(self):
         # open a text editor with tasks.txt
