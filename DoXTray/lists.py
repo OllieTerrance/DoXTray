@@ -18,14 +18,15 @@ class lists(QtGui.QMainWindow):
         self.resize(1040, 600)
         self.setGeometry(QtGui.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter, self.size(),
                                                   QtGui.QDesktopWidget().availableGeometry()))
-        # main layout
-        self.mainLayout = QtGui.QHBoxLayout()
-        self.mainLayout.addWidget(self.buildMain())
-        self.mainLayout.addWidget(self.buildSide())
         # main widget
-        self.mainWidget = QtGui.QWidget()
-        self.mainWidget.setLayout(self.mainLayout)
-        self.setCentralWidget(self.mainWidget)
+        splitWidget = QtGui.QSplitter()
+        splitWidget.addWidget(self.buildMain())
+        splitWidget.addWidget(self.buildSide())
+        mainLayout = QtGui.QHBoxLayout()
+        mainLayout.addWidget(splitWidget)
+        mainWidget = QtGui.QWidget()
+        mainWidget.setLayout(mainLayout)
+        self.setCentralWidget(mainWidget)
         # signal listeners
         self.connect(self.worker, QtCore.SIGNAL("refresh()"), self.refresh)
         # protocol handlers
@@ -108,7 +109,6 @@ class lists(QtGui.QMainWindow):
         self.controlTabs.addTab(infoTab, "Task")
         self.controlTabs.addTab(sortTab, "Sort")
         self.controlTabs.addTab(filterTab, "Filter")
-        self.controlTabs.setMaximumWidth(250)
         # layouts
         moveLayout1 = QtGui.QHBoxLayout()
         moveLayout1.addWidget(sortMoveLabel)
