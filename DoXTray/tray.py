@@ -33,6 +33,9 @@ class fileMonitor(QtCore.QThread):
                 self.emit(QtCore.SIGNAL("refresh()"))
             # sleep for a bit
             time.sleep(5)
+    def listsSaved(self):
+        # update last mod. time now without triggering refresh
+        self.fileLastMod = self.dox.tasksFileLastMod()
 
 class dueMonitor(QtCore.QThread):
     def __init__(self, dox):
@@ -55,7 +58,8 @@ class dueMonitor(QtCore.QThread):
                     # check it hasn't been notified recently
                     ok = True
                     for notify in self.notified:
-                        if notify[0] == taskObj:
+                        # compare but ignore task ID
+                        if notify[0].__eq__(taskObj, False):
                             # if notified about in the last hour
                             if notify[1] + datetime.timedelta(hours=1) > now:
                                 ok = False
@@ -107,6 +111,7 @@ class tray(QtGui.QSystemTrayIcon):
         self.connect(self.dueMonitor, QtCore.SIGNAL("warning(QString, QString)"), self.warning)
         self.connect(self.addWindow, QtCore.SIGNAL("info(QString, QString)"), self.info)
         self.connect(self.addWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
+        self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.fileMonitor.listsSaved)
         # start polling
         self.fileMonitor.start()
         self.dueMonitor.start()
