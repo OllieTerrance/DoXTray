@@ -79,8 +79,6 @@ class lists(QtGui.QMainWindow):
         self.infoContent.setWordWrap(True)
         self.infoDoneButton = QtGui.QPushButton("Done")
         self.infoDoneButton.setEnabled(False)
-        self.infoMoveButton = QtGui.QPushButton("Move")
-        self.infoMoveButton.setEnabled(False)
         self.infoEditButton = QtGui.QPushButton("Edit")
         self.infoEditButton.setEnabled(False)
         self.infoDeleteButton = QtGui.QPushButton("Delete")
@@ -122,7 +120,6 @@ class lists(QtGui.QMainWindow):
         moveLayout2.addWidget(self.sortMovePosButton)
         cmdLayout = QtGui.QHBoxLayout()
         cmdLayout.addWidget(self.infoDoneButton)
-        cmdLayout.addWidget(self.infoMoveButton)
         cmdLayout.addWidget(self.infoEditButton)
         cmdLayout.addWidget(self.infoDeleteButton)
         self.infoLayout = QtGui.QVBoxLayout()
@@ -217,7 +214,6 @@ class lists(QtGui.QMainWindow):
                 self.infoContent.setText("Select a task on the left.")
                 # disable all controls
                 self.infoDoneButton.setEnabled(False)
-                self.infoMoveButton.setEnabled(False)
                 self.infoEditButton.setEnabled(False)
                 self.infoDeleteButton.setEnabled(False)
                 self.sortMoveUpButton.setEnabled(False)
@@ -254,7 +250,6 @@ class lists(QtGui.QMainWindow):
                                                                                                "<br/><br/>" + "  ".join(tagWrap) if tagWrap else ""))
                 # enable multiple delete and completion, plus others if tasks (not done)
                 self.infoDoneButton.setEnabled(True)
-                self.infoMoveButton.setEnabled(isTasks)
                 self.infoEditButton.setEnabled(isTasks)
                 self.infoDeleteButton.setEnabled(True)
                 self.sortMoveUpButton.setEnabled(isTasks and not id == 1)
@@ -268,7 +263,6 @@ class lists(QtGui.QMainWindow):
                 self.infoContent.setText("{} tasks selected.".format(len(ids)))
                 # only enable multiple delete and completion
                 self.infoDoneButton.setEnabled(True)
-                self.infoMoveButton.setEnabled(False)
                 self.infoEditButton.setEnabled(False)
                 self.infoDeleteButton.setEnabled(True)
                 # enable move up/down if one continuous block selection
