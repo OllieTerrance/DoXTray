@@ -59,16 +59,16 @@ class lists(QtGui.QMainWindow):
         doneLayout.addWidget(self.doneTable)
         doneTab.setLayout(doneLayout)
         # shortcuts
-        switchTabs1 = QtGui.QShortcut(self)
-        switchTabs1.setKey("Ctrl+Tab")
-        switchTabs2 = QtGui.QShortcut(self)
-        switchTabs2.setKey("Ctrl+Shift+Tab")
+        switchMainTabs1 = QtGui.QShortcut(self)
+        switchMainTabs1.setKey("Ctrl+Tab")
+        switchMainTabs2 = QtGui.QShortcut(self)
+        switchMainTabs2.setKey("Ctrl+Shift+Tab")
         # connections
         self.taskTable.itemSelectionChanged.connect(self.taskSelectionChanged)
         self.doneTable.itemSelectionChanged.connect(self.doneSelectionChanged)
         self.listTabs.currentChanged.connect(self.tabSwitched)
-        switchTabs1.activated.connect(self.switchTab)
-        switchTabs2.activated.connect(self.switchTab)
+        switchMainTabs1.activated.connect(self.switchMainTab)
+        switchMainTabs2.activated.connect(self.switchMainTab)
         # return new tabs
         return self.listTabs
     def buildSide(self):
@@ -91,7 +91,8 @@ class lists(QtGui.QMainWindow):
         self.sortMoveDownButton = QtGui.QPushButton("Down")
         self.sortMoveDownButton.setEnabled(False)
         sortMovePosLabel = QtGui.QLabel("To position:")
-        self.sortMovePosEdit = QtGui.QLineEdit()
+        self.sortMovePosEdit = QtGui.QSpinBox()
+        self.sortMovePosEdit.setMinimum(1)
         self.sortMovePosEdit.setEnabled(False)
         self.sortMovePosButton = QtGui.QPushButton("Go")
         self.sortMovePosButton.setEnabled(False)
@@ -138,14 +139,22 @@ class lists(QtGui.QMainWindow):
         filterLayout.addWidget(self.filterTagCheck)
         filterLayout.addWidget(self.filterTagEdit)
         filterTab.setLayout(filterLayout)
+        # shortcuts
+        switchSideTabs1 = QtGui.QShortcut(self)
+        switchSideTabs1.setKey("Ctrl+`")
+        switchSideTabs2 = QtGui.QShortcut(self)
+        switchSideTabs2.setKey("Ctrl+Shift+`")
         # connections
         self.infoDoneButton.clicked.connect(self.infoDoneClicked)
         self.infoEditButton.clicked.connect(self.infoEditClicked)
         self.infoDeleteButton.clicked.connect(self.infoDeleteClicked)
         self.sortMoveUpButton.clicked.connect(self.sortMoveUpClicked)
         self.sortMoveDownButton.clicked.connect(self.sortMoveDownClicked)
+        self.sortMovePosButton.clicked.connect(self.sortMovePosClicked)
         self.filterPriCheck.toggled.connect(self.filterPriToggled)
         self.filterTagCheck.toggled.connect(self.filterTagToggled)
+        switchSideTabs1.activated.connect(self.switchSideTab)
+        switchSideTabs2.activated.connect(self.switchSideTabRev)
         # return new tabs
         return self.controlTabs
     def refresh(self):
@@ -185,6 +194,8 @@ class lists(QtGui.QMainWindow):
             count += 1
         # resize columns
         self.doneTable.resizeColumnsToContents()
+        # update move position spinbox maximum value
+        self.sortMovePosEdit.setMaximum(self.dox.getCount())
     def saveAndRefresh(self):
         # save tasks
         self.dox.saveTasks()
@@ -211,6 +222,8 @@ class lists(QtGui.QMainWindow):
                 self.infoDeleteButton.setEnabled(False)
                 self.sortMoveUpButton.setEnabled(False)
                 self.sortMoveDownButton.setEnabled(False)
+                self.sortMovePosEdit.setEnabled(False)
+                self.sortMovePosButton.setEnabled(False)
             # one row selected, show details
             elif len(ids) == 1:
                 id = ids[0]
@@ -244,8 +257,12 @@ class lists(QtGui.QMainWindow):
                 self.infoMoveButton.setEnabled(isTasks)
                 self.infoEditButton.setEnabled(isTasks)
                 self.infoDeleteButton.setEnabled(True)
-                self.sortMoveUpButton.setEnabled(isTasks and 1 not in ids)
-                self.sortMoveDownButton.setEnabled(isTasks and self.dox.getCount() not in ids)
+                self.sortMoveUpButton.setEnabled(isTasks and not id == 1)
+                self.sortMoveDownButton.setEnabled(isTasks and not id == self.dox.getCount())
+                self.sortMovePosEdit.setEnabled(isTasks)
+                self.sortMovePosButton.setEnabled(isTasks)
+                # update move position spinbox to current position
+                self.sortMovePosEdit.setValue(id)
             # multiple rows selected
             else:
                 self.infoContent.setText("{} tasks selected.".format(len(ids)))
@@ -254,7 +271,7 @@ class lists(QtGui.QMainWindow):
                 self.infoMoveButton.setEnabled(False)
                 self.infoEditButton.setEnabled(False)
                 self.infoDeleteButton.setEnabled(True)
-                # enable move if one continuous block selection
+                # enable move up/down if one continuous block selection
                 count = -1
                 for id in ids:
                     if count == -1:
@@ -267,9 +284,18 @@ class lists(QtGui.QMainWindow):
                         count += 1
                 self.sortMoveUpButton.setEnabled(isTasks and 1 not in ids)
                 self.sortMoveDownButton.setEnabled(isTasks and self.dox.getCount() not in ids)
-    def switchTab(self):
+                # don't allow move to position
+                self.sortMovePosEdit.setEnabled(False)
+                self.sortMovePosButton.setEnabled(False)
+    def switchMainTab(self):
         # toggle tab index (1 - 1 = 0, 1 - 0 = 1)
         self.listTabs.setCurrentIndex(1 - self.listTabs.currentIndex())
+    def switchSideTab(self):
+        # increase tab index (mod 3 to convert 3 to 0)
+        self.controlTabs.setCurrentIndex((self.controlTabs.currentIndex() + 1) % 3)
+    def switchSideTabRev(self):
+        # increase tab index (mod 3 to convert -1 to 2)
+        self.controlTabs.setCurrentIndex((self.controlTabs.currentIndex() - 1) % 3)
     def tabSwitched(self, index):
         # clear selection on other table (i.e. not new selected one) on switch
         otherTable = self.taskTable if index == 1 else self.doneTable
@@ -315,7 +341,7 @@ class lists(QtGui.QMainWindow):
         ids.sort()
         # move each task up one
         for id in ids:
-            self.dox.moveTask(id, id - 1, False if self.listTabs.currentIndex() == 1 else True)
+            self.dox.moveTask(id, id - 1)
         # resave and refresh
         self.saveAndRefresh()
         # focus table
@@ -331,7 +357,7 @@ class lists(QtGui.QMainWindow):
         ids.sort(reverse=True)
         # move each task down one
         for id in ids:
-            self.dox.moveTask(id, id + 1, False if self.listTabs.currentIndex() == 1 else True)
+            self.dox.moveTask(id, id + 1)
         # resave and refresh
         self.saveAndRefresh()
         # focus table
@@ -340,6 +366,21 @@ class lists(QtGui.QMainWindow):
         for id in ids:
             # +1 for move down, -1 for 0-based row, 1-based id
             self.taskTable.setCurrentCell(id, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
+    def sortMovePosClicked(self):
+        # row selected (option only available with single selections)
+        id = self.tasksFromSelection()[0]
+        # read position from spinbox
+        pos = int(self.sortMovePosEdit.value())
+        # if the values are different
+        if not id == pos:
+            # move the task
+            self.dox.moveTask(id, pos)
+            # resave and refresh
+            self.saveAndRefresh()
+            # focus table
+            self.taskTable.setFocus()
+            # reselect task at new position, -1 for 0-based row, 1-based id
+            self.taskTable.setCurrentCell(pos - 1, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
     def filterPriToggled(self, checked):
         self.filterPriCombo.setEnabled(checked)
     def filterTagToggled(self, checked):
