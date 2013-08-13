@@ -97,6 +97,9 @@ class lists(QtGui.QMainWindow):
         filterPriLabel = QtGui.QLabel("Restrict list to tasks with minimum priority:")
         self.filterPriCombo = QtGui.QComboBox()
         self.filterPriCombo.addItems(["Show all tasks", "At least medium", "High or critical", "Only critical"])
+        filterDueLabel = QtGui.QLabel("Restrict list to tasks with due dates:")
+        self.filterDueCombo = QtGui.QComboBox()
+        self.filterDueCombo.addItems(["Show all tasks", "Due today", "Due tomorrow", "Due in the next week", "Overdue", "With a due date", "No due date"])
         filterTagLabel = QtGui.QLabel("Restrict list to tasks with assigned tags:")
         self.filterTagEdit = QtGui.QLineEdit()
         # tabs
@@ -131,6 +134,8 @@ class lists(QtGui.QMainWindow):
         filterLayout = QtGui.QVBoxLayout()
         filterLayout.addWidget(filterPriLabel)
         filterLayout.addWidget(self.filterPriCombo)
+        filterLayout.addWidget(filterDueLabel)
+        filterLayout.addWidget(self.filterDueCombo)
         filterLayout.addWidget(filterTagLabel)
         filterLayout.addWidget(self.filterTagEdit)
         filterTab.setLayout(filterLayout)
@@ -147,66 +152,62 @@ class lists(QtGui.QMainWindow):
         self.sortMoveDownButton.clicked.connect(self.sortMoveDownClicked)
         self.sortMovePosButton.clicked.connect(self.sortMovePosClicked)
         self.filterPriCombo.currentIndexChanged.connect(self.refresh)
+        self.filterDueCombo.currentIndexChanged.connect(self.refresh)
         self.filterTagEdit.editingFinished.connect(self.refresh)
         switchSideTabs1.activated.connect(self.switchSideTab)
         switchSideTabs2.activated.connect(self.switchSideTabRev)
         # return new tabs
         return self.controlTabs
     def refresh(self):
-        # flush table
-        self.taskTable.setRowCount(0)
-        # fetch all tasks
-        tasks = self.dox.getAllTasks()
-        # apply priority filter
-        pri = self.filterPriCombo.currentIndex()
-        tasks = [x for x in tasks if x.pri >= pri]
-        # apply tag filter if filled in
-        if self.filterTagEdit.text():
-            tags = shlex.split(self.filterTagEdit.text())
-            tasks = [x for x in tasks if set(x.tags).intersection(set(tags))]
-        # reallocate table
-        self.taskTable.setRowCount(len(tasks))
-        # loop through tasks
-        count = 0
-        for taskObj in tasks:
-            # cell values
-            cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
-                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
-            column = 0
-            for cell in cells:
-                # set each cell
-                self.taskTable.setItem(count, column, QtGui.QTableWidgetItem(cell))
-                column += 1
-            count += 1
-        # resize columns
-        self.taskTable.resizeColumnsToContents()
-        # flush table
-        self.doneTable.setRowCount(0)
-        # fetch all tasks
-        done = self.dox.getAllTasks(False)
-        # apply priority filter
-        pri = self.filterPriCombo.currentIndex()
-        done = [x for x in done if x.pri >= pri]
-        # apply tag filter if filled in
-        if self.filterTagEdit.text():
-            tags = shlex.split(self.filterTagEdit.text())
-            done = [x for x in done if set(x.tags).intersection(set(tags))]
-        # reallocate table
-        self.doneTable.setRowCount(len(done))
-        # loop through done tasks
-        count = 0
-        for taskObj in done:
-            # cell values
-            cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
-                     prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
-            column = 0
-            for cell in cells:
-                # set each cell
-                self.doneTable.setItem(count, column, QtGui.QTableWidgetItem(cell))
-                column += 1
-            count += 1
-        # resize columns
-        self.doneTable.resizeColumnsToContents()
+        # do tasks table first, then done table
+        for table in [(self.taskTable, self.dox.getAllTasks()), (self.doneTable, self.dox.getAllTasks(False))]:
+            # flush table
+            table[0].setRowCount(0)
+            # fetch all tasks
+            tasks = table[1]
+            # apply priority filter
+            pri = self.filterPriCombo.currentIndex()
+            tasks = [x for x in tasks if x.pri >= pri]
+            # apply due date filter
+            due = self.filterDueCombo.currentIndex()
+            today = datetime.datetime.today().date()
+            # due today
+            if due == 1:
+                tasks = [x for x in tasks if x.due and x.due[0].date() <= today]
+            # due tomorrow
+            elif due == 2:
+                tasks = [x for x in tasks if x.due and x.due[0].date() == today + datetime.timedelta(days=1)]
+            # due in the next week
+            elif due == 3:
+                tasks = [x for x in tasks if x.due and today <= x.due[0].date() <= today + datetime.timedelta(days=7)]
+            # overdue
+            elif due == 4:
+                tasks = [x for x in tasks if x.due and x.due[0].date() < today]
+            # with a due date
+            elif due == 5:
+                tasks = [x for x in tasks if x.due]
+            # no due date
+            elif due == 6:
+                tasks = [x for x in tasks if not x.due]
+            if self.filterTagEdit.text():
+                tags = shlex.split(self.filterTagEdit.text())
+                tasks = [x for x in tasks if set(x.tags).intersection(set(tags))]
+            # reallocate table
+            table[0].setRowCount(len(tasks))
+            # loop through tasks
+            count = 0
+            for taskObj in tasks:
+                # cell values
+                cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
+                         prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
+                column = 0
+                for cell in cells:
+                    # set each cell
+                    table[0].setItem(count, column, QtGui.QTableWidgetItem(cell))
+                    column += 1
+                count += 1
+            # resize columns
+            table[0].resizeColumnsToContents()
         # update move position spinbox maximum value
         self.sortMovePosEdit.setMaximum(self.dox.getCount())
     def saveAndRefresh(self):
