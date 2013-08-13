@@ -1,5 +1,5 @@
 # some other useful imports
-import html, re, sys
+import html, re, shlex, sys
 # add DoX core to path
 sys.path.append("dox")
 # main class import
@@ -94,13 +94,11 @@ class lists(QtGui.QMainWindow):
         self.sortMovePosEdit.setEnabled(False)
         self.sortMovePosButton = QtGui.QPushButton("Go")
         self.sortMovePosButton.setEnabled(False)
-        self.filterPriCheck = QtGui.QCheckBox("Restrict list to tasks with minimum priority:")
+        filterPriLabel = QtGui.QLabel("Restrict list to tasks with minimum priority:")
         self.filterPriCombo = QtGui.QComboBox()
-        self.filterPriCombo.addItems(["Medium (1)", "High (2)", "Critical (3)"])
-        self.filterPriCombo.setEnabled(False)
-        self.filterTagCheck = QtGui.QCheckBox("Restrict list to tasks with assigned tags:")
+        self.filterPriCombo.addItems(["Show all tasks", "At least medium", "High or critical", "Only critical"])
+        filterTagLabel = QtGui.QLabel("Restrict list to tasks with assigned tags:")
         self.filterTagEdit = QtGui.QLineEdit()
-        self.filterTagEdit.setEnabled(False)
         # tabs
         self.controlTabs = QtGui.QTabWidget()
         infoTab = QtGui.QWidget()
@@ -131,9 +129,9 @@ class lists(QtGui.QMainWindow):
         sortLayout.addLayout(moveLayout2)
         sortTab.setLayout(sortLayout)
         filterLayout = QtGui.QVBoxLayout()
-        filterLayout.addWidget(self.filterPriCheck)
+        filterLayout.addWidget(filterPriLabel)
         filterLayout.addWidget(self.filterPriCombo)
-        filterLayout.addWidget(self.filterTagCheck)
+        filterLayout.addWidget(filterTagLabel)
         filterLayout.addWidget(self.filterTagEdit)
         filterTab.setLayout(filterLayout)
         # shortcuts
@@ -148,8 +146,8 @@ class lists(QtGui.QMainWindow):
         self.sortMoveUpButton.clicked.connect(self.sortMoveUpClicked)
         self.sortMoveDownButton.clicked.connect(self.sortMoveDownClicked)
         self.sortMovePosButton.clicked.connect(self.sortMovePosClicked)
-        self.filterPriCheck.toggled.connect(self.filterPriToggled)
-        self.filterTagCheck.toggled.connect(self.filterTagToggled)
+        self.filterPriCombo.currentIndexChanged.connect(self.refresh)
+        self.filterTagEdit.editingFinished.connect(self.refresh)
         switchSideTabs1.activated.connect(self.switchSideTab)
         switchSideTabs2.activated.connect(self.switchSideTabRev)
         # return new tabs
@@ -157,11 +155,20 @@ class lists(QtGui.QMainWindow):
     def refresh(self):
         # flush table
         self.taskTable.setRowCount(0)
+        # fetch all tasks
+        tasks = self.dox.getAllTasks()
+        # apply priority filter
+        pri = self.filterPriCombo.currentIndex()
+        tasks = [x for x in tasks if x.pri >= pri]
+        # apply tag filter if filled in
+        if self.filterTagEdit.text():
+            tags = shlex.split(self.filterTagEdit.text())
+            tasks = [x for x in tasks if set(x.tags).intersection(set(tags))]
         # reallocate table
-        self.taskTable.setRowCount(len(self.dox.tasks))
+        self.taskTable.setRowCount(len(tasks))
         # loop through tasks
         count = 0
-        for taskObj in self.dox.tasks:
+        for taskObj in tasks:
             # cell values
             cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
                      prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
@@ -175,11 +182,20 @@ class lists(QtGui.QMainWindow):
         self.taskTable.resizeColumnsToContents()
         # flush table
         self.doneTable.setRowCount(0)
+        # fetch all tasks
+        done = self.dox.getAllTasks(False)
+        # apply priority filter
+        pri = self.filterPriCombo.currentIndex()
+        done = [x for x in done if x.pri >= pri]
+        # apply tag filter if filled in
+        if self.filterTagEdit.text():
+            tags = shlex.split(self.filterTagEdit.text())
+            done = [x for x in done if set(x.tags).intersection(set(tags))]
         # reallocate table
-        self.doneTable.setRowCount(len(self.dox.done))
+        self.doneTable.setRowCount(len(done))
         # loop through done tasks
         count = 0
-        for taskObj in self.dox.done:
+        for taskObj in done:
             # cell values
             cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
                      prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
@@ -375,10 +391,6 @@ class lists(QtGui.QMainWindow):
             self.taskTable.setFocus()
             # reselect task at new position, -1 for 0-based row, 1-based id
             self.taskTable.setCurrentCell(pos - 1, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
-    def filterPriToggled(self, checked):
-        self.filterPriCombo.setEnabled(checked)
-    def filterTagToggled(self, checked):
-        self.filterTagEdit.setEnabled(checked)
     def tasksFromSelection(self):
         # select from correct table
         table = self.doneTable if self.listTabs.currentIndex() == 1 else self.taskTable
