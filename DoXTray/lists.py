@@ -83,7 +83,24 @@ class lists(QtGui.QMainWindow):
         self.infoEditButton.setEnabled(False)
         self.infoDeleteButton = QtGui.QPushButton("Delete")
         self.infoDeleteButton.setEnabled(False)
-        sortMoveLabel = QtGui.QLabel("Move this task...")
+        sortALabel = QtGui.QLabel("Primary sort:")
+        self.sortACombo = QtGui.QComboBox()
+        self.sortACombo.addItems(["No sorting", "Task", "Priority", "Due", "Tags"])
+        self.sortACheck = QtGui.QCheckBox("Descending")
+        self.sortACheck.setEnabled(False)
+        sortBLabel = QtGui.QLabel("Secondary sort:")
+        self.sortBCombo = QtGui.QComboBox()
+        self.sortBCombo.addItems(["No sorting", "Task", "Priority", "Due", "Tags"])
+        self.sortBCombo.setEnabled(False)
+        self.sortBCheck = QtGui.QCheckBox("Descending")
+        self.sortBCheck.setEnabled(False)
+        sortCLabel = QtGui.QLabel("Tertiary sort:")
+        self.sortCCombo = QtGui.QComboBox()
+        self.sortCCombo.addItems(["No sorting", "Task", "Priority", "Due", "Tags"])
+        self.sortCCombo.setEnabled(False)
+        self.sortCCheck = QtGui.QCheckBox("Descending")
+        self.sortCCheck.setEnabled(False)
+        sortMoveLabel = QtGui.QLabel("Move this task:")
         self.sortMoveUpButton = QtGui.QPushButton("Up")
         self.sortMoveUpButton.setEnabled(False)
         self.sortMoveDownButton = QtGui.QPushButton("Down")
@@ -111,6 +128,18 @@ class lists(QtGui.QMainWindow):
         self.controlTabs.addTab(sortTab, "Sort")
         self.controlTabs.addTab(filterTab, "Filter")
         # layouts
+        sortLayoutA = QtGui.QHBoxLayout()
+        sortLayoutA.addWidget(sortALabel)
+        sortLayoutA.addWidget(self.sortACombo)
+        sortLayoutA.addWidget(self.sortACheck)
+        sortLayoutB = QtGui.QHBoxLayout()
+        sortLayoutB.addWidget(sortBLabel)
+        sortLayoutB.addWidget(self.sortBCombo)
+        sortLayoutB.addWidget(self.sortBCheck)
+        sortLayoutC = QtGui.QHBoxLayout()
+        sortLayoutC.addWidget(sortCLabel)
+        sortLayoutC.addWidget(self.sortCCombo)
+        sortLayoutC.addWidget(self.sortCCheck)
         moveLayout1 = QtGui.QHBoxLayout()
         moveLayout1.addWidget(sortMoveLabel)
         moveLayout1.addWidget(self.sortMoveUpButton)
@@ -128,6 +157,9 @@ class lists(QtGui.QMainWindow):
         self.infoLayout.addLayout(cmdLayout)
         infoTab.setLayout(self.infoLayout)
         sortLayout = QtGui.QVBoxLayout()
+        sortLayout.addLayout(sortLayoutA)
+        sortLayout.addLayout(sortLayoutB)
+        sortLayout.addLayout(sortLayoutC)
         sortLayout.addLayout(moveLayout1)
         sortLayout.addLayout(moveLayout2)
         sortTab.setLayout(sortLayout)
@@ -148,6 +180,12 @@ class lists(QtGui.QMainWindow):
         self.infoDoneButton.clicked.connect(self.infoDoneClicked)
         self.infoEditButton.clicked.connect(self.infoEditClicked)
         self.infoDeleteButton.clicked.connect(self.infoDeleteClicked)
+        self.sortACombo.currentIndexChanged.connect(self.sortComboChanged)
+        self.sortACheck.stateChanged.connect(self.refresh)
+        self.sortBCombo.currentIndexChanged.connect(self.sortComboChanged)
+        self.sortBCheck.stateChanged.connect(self.refresh)
+        self.sortCCombo.currentIndexChanged.connect(self.sortComboChanged)
+        self.sortCCheck.stateChanged.connect(self.refresh)
         self.sortMoveUpButton.clicked.connect(self.sortMoveUpClicked)
         self.sortMoveDownButton.clicked.connect(self.sortMoveDownClicked)
         self.sortMovePosButton.clicked.connect(self.sortMovePosClicked)
@@ -192,6 +230,21 @@ class lists(QtGui.QMainWindow):
             if self.filterTagEdit.text():
                 tags = shlex.split(self.filterTagEdit.text())
                 tasks = [x for x in tasks if set(x.tags).intersection(set(tags))]
+            # apply sort if set
+            sorts = [(self.sortACombo.currentIndex(), self.sortACheck.isChecked()),
+                    (self.sortBCombo.currentIndex(), self.sortBCheck.isChecked()),
+                    (self.sortCCombo.currentIndex(), self.sortCCheck.isChecked())]
+            # reverse sort arguments (so first sort field is applied last but appears first)
+            sorts.reverse()
+            # apply each sort in turn
+            for sort in sorts:
+                if sort[0]:
+                    fields = ["title", "pri", "due", "tags"]
+                    field = fields[sort[0] - 1]
+                    # sort with undefined items at bottom regardless of order
+                    withField = sorted([x for x in tasks if not getattr(x, field) is None], key=(lambda x: getattr(x, field)), reverse=sort[1])
+                    withoutField = [x for x in tasks if getattr(x, field) is None]
+                    tasks = withField + withoutField
             # reallocate table
             table[0].setRowCount(len(tasks))
             # loop through tasks
@@ -345,6 +398,28 @@ class lists(QtGui.QMainWindow):
                 self.dox.deleteTask(id, self.listTabs.currentIndex() == 0)
             # resave and refresh
             self.saveAndRefresh()
+    def sortComboChanged(self):
+        # read sort selections
+        sort = [self.sortACombo.currentIndex(), self.sortBCombo.currentIndex(), self.sortCCombo.currentIndex()]
+        # reset fields when higher sort disabled
+        if not sort[0] or not sort[1] or not sort[2]:
+            if not sort[0] or not sort[1]:
+                if not sort[0]:
+                    self.sortACheck.setChecked(False)
+                    self.sortBCombo.setCurrentIndex(0)
+                self.sortBCheck.setChecked(False)
+                self.sortCCombo.setCurrentIndex(0)
+            self.sortCCheck.setChecked(False)
+        # enable if first sort set
+        self.sortACheck.setEnabled(sort[0])
+        self.sortBCombo.setEnabled(sort[0])
+        # enable if first and second set
+        self.sortBCheck.setEnabled(sort[0] and sort[1])
+        self.sortCCombo.setEnabled(sort[0] and sort[1])
+        # enable if all three set
+        self.sortCCheck.setEnabled(sort[0] and sort[1] and sort[2])
+        # refresh tables
+        self.refresh()
     def sortMoveUpClicked(self):
         # list of rows selected
         ids = self.tasksFromSelection()
