@@ -4,6 +4,8 @@ import html, re, shlex, sys
 sys.path.append("dox")
 # main class import
 from dox import *
+# edit window class import
+from edit import *
 # interface with PyQt
 from PyQt4 import QtCore, QtGui
 
@@ -405,7 +407,11 @@ class lists(QtGui.QMainWindow):
             # resave and refresh
             self.saveAndRefresh()
     def infoEditClicked(self):
-        pass
+        # row selected (option only available with single selections)
+        id = self.tasksFromSelection()[0]
+        # make new edit window
+        self.editWindow = edit(self.dox, id)
+        self.editWindow.show()
     def infoDeleteClicked(self):
         # get selected IDs
         ids = self.tasksFromSelection()
