@@ -411,6 +411,7 @@ class lists(QtGui.QMainWindow):
         id = self.tasksFromSelection()[0]
         # make new edit window
         self.editWindow = edit(self.dox, id)
+        self.connect(self.editWindow, QtCore.SIGNAL("refresh()"), self.refresh)
         self.editWindow.show()
     def infoDeleteClicked(self):
         # get selected IDs

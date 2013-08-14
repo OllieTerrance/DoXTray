@@ -84,16 +84,6 @@ class tray(QtGui.QSystemTrayIcon):
         # components
         self.setIcon(QtGui.QIcon("check.png"))
         self.setToolTip("DoX")
-        self.menu = QtGui.QMenu()
-        self.addAction = self.menu.addAction("Add task...")
-        self.listsAction = self.menu.addAction("List tasks")
-        self.menu.addSeparator()
-        self.tasksAction = self.menu.addAction("Edit tasks.txt")
-        self.doneAction = self.menu.addAction("Edit done.txt")
-        self.menu.addSeparator()
-        self.exitAction = self.menu.addAction("Exit DoX")
-        self.menu.setDefaultAction(self.addAction)
-        self.setContextMenu(self.menu)
         # construct other features
         self.dox = dox
         self.fileMonitor = fileMonitor(dox)
@@ -102,21 +92,57 @@ class tray(QtGui.QSystemTrayIcon):
         self.listsWindow = lists(dox, self.fileMonitor)
         # connections
         self.activated.connect(self.activate)
-        self.addAction.triggered.connect(self.addTask)
-        self.listsAction.triggered.connect(self.listTasks)
-        self.tasksAction.triggered.connect(self.editTasks)
-        self.doneAction.triggered.connect(self.editDone)
-        self.exitAction.triggered.connect(QtGui.QApplication.quit)
         # signal listeners
+        self.connect(self.fileMonitor, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
+        self.connect(self.fileMonitor, QtCore.SIGNAL("refresh()"), self.makeMenu)
         self.connect(self.dueMonitor, QtCore.SIGNAL("warning(QString, QString)"), self.warning)
         self.connect(self.addWindow, QtCore.SIGNAL("info(QString, QString)"), self.info)
+        self.connect(self, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         self.connect(self.addWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
+        self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.makeMenu)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.fileMonitor.listsSaved)
         # start polling
         self.fileMonitor.start()
         self.dueMonitor.start()
+        # create context menu
+        self.makeMenu()
         # show tray icon
         self.show()
+    def makeMenu(self):
+        self.mainMenu = QtGui.QMenu()
+        listsAction = self.mainMenu.addAction("&List tasks")
+        listsAction.triggered.connect(self.listTasks)
+        addAction = self.mainMenu.addAction("&Add task...")
+        addAction.triggered.connect(self.addTask)
+        self.mainMenu.addSeparator()
+        # submenu to quickly complete a task
+        if self.dox.getCount():
+            self.markDoneMenu = self.mainMenu.addMenu("Mark &done")
+            tasks = self.dox.getAllTasks()
+            for taskObj in tasks:
+                markAction = self.markDoneMenu.addAction("{}{}. {}".format("&" if taskObj.id <= 9 else "", taskObj.id, taskObj.title))
+                markAction.setData(taskObj.id)
+                markAction.triggered.connect(self.markDone)
+        # submenu to quickly undo a task
+        if self.dox.getCount(False):
+            self.markUndoMenu = self.mainMenu.addMenu("&Undo task")
+            tasks = self.dox.getAllTasks(False)
+            for taskObj in tasks:
+                markAction = self.markUndoMenu.addAction("{}{}. {}".format("&" if taskObj.id <= 9 else "", taskObj.id, taskObj.title))
+                markAction.setData(taskObj.id)
+                markAction.triggered.connect(self.markUndo)
+        self.mainMenu.addSeparator()
+        tasksAction = self.mainMenu.addAction("&Edit tasks.txt")
+        tasksAction.triggered.connect(self.editTasks)
+        doneAction = self.mainMenu.addAction("Edi&t done.txt")
+        doneAction.triggered.connect(self.editDone)
+        self.mainMenu.addSeparator()
+        exitAction = self.mainMenu.addAction("E&xit DoX")
+        exitAction.triggered.connect(QtGui.QApplication.quit)
+        # default to listing tasks
+        self.mainMenu.setDefaultAction(listsAction)
+        # assign the menu
+        self.setContextMenu(self.mainMenu)
     def addTask(self):
         # bring window to front, focus on text field
         self.addWindow.show()
@@ -131,6 +157,27 @@ class tray(QtGui.QSystemTrayIcon):
             self.listsWindow.splitWidget.moveSplitter(760, 1)
             self.listsWindow.splitMoved = True
         self.listsWindow.refresh()
+    def markDone(self):
+        # fetch task associated with action
+        id = self.sender().data()
+        # mark as done
+        self.dox.doneTask(id)
+        # resave and refresh
+        self.saveAndRefresh()
+    def markUndo(self):
+        # fetch task associated with action
+        id = self.sender().data()
+        # mark as done
+        self.dox.undoTask(id)
+        # resave and refresh
+        self.saveAndRefresh()
+    def saveAndRefresh(self):
+        # save tasks
+        self.dox.saveTasks()
+        # update lists window if open
+        self.emit(QtCore.SIGNAL("refresh()"))
+        # update context menu
+        self.makeMenu()
     def editTasks(self):
         # open a text editor with tasks.txt
         webbrowser.open(os.path.join(os.path.expanduser("~"), "DoX", "tasks.txt"))
