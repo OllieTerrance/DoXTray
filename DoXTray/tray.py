@@ -58,8 +58,8 @@ class dueMonitor(QtCore.QThread):
                     # check it hasn't been notified recently
                     ok = True
                     for notify in self.notified:
-                        # compare but ignore task ID
-                        if notify[0].__eq__(taskObj, False):
+                        # compare to see if notified about before
+                        if notify[0] == taskObj:
                             # if notified about in the last hour
                             if notify[1] + datetime.timedelta(hours=1) > now:
                                 ok = False
@@ -120,16 +120,18 @@ class tray(QtGui.QSystemTrayIcon):
             self.markDoneMenu = self.mainMenu.addMenu("Mark &done")
             tasks = self.dox.getAllTasks()
             for taskObj in tasks:
-                markAction = self.markDoneMenu.addAction("{}{}. {}".format("&" if taskObj.id <= 9 else "", taskObj.id, taskObj.title))
-                markAction.setData(taskObj.id)
+                pos = self.dox.idToPos(taskObj.id)
+                markAction = self.markDoneMenu.addAction("{}{}. {}".format("&" if pos <= 9 else "", pos, taskObj.title.replace("&", "&&")))
+                markAction.setData(pos)
                 markAction.triggered.connect(self.markDone)
         # submenu to quickly undo a task
         if self.dox.getCount(False):
             self.markUndoMenu = self.mainMenu.addMenu("&Undo task")
             tasks = self.dox.getAllTasks(False)
             for taskObj in tasks:
-                markAction = self.markUndoMenu.addAction("{}{}. {}".format("&" if taskObj.id <= 9 else "", taskObj.id, taskObj.title))
-                markAction.setData(taskObj.id)
+                pos = self.dox.idToPos(taskObj.id, False)
+                markAction = self.markUndoMenu.addAction("{}{}. {}".format("&" if pos <= 9 else "", pos, taskObj.title.replace("&", "&&")))
+                markAction.setData(pos)
                 markAction.triggered.connect(self.markUndo)
         self.mainMenu.addSeparator()
         tasksAction = self.mainMenu.addAction("&Edit tasks.txt")
@@ -159,16 +161,16 @@ class tray(QtGui.QSystemTrayIcon):
         self.listsWindow.refresh()
     def markDone(self):
         # fetch task associated with action
-        id = self.sender().data()
+        pos = self.sender().data()
         # mark as done
-        self.dox.doneTask(id)
+        self.dox.doneNthTask(pos)
         # resave and refresh
         self.saveAndRefresh()
     def markUndo(self):
         # fetch task associated with action
-        id = self.sender().data()
+        pos = self.sender().data()
         # mark as done
-        self.dox.undoTask(id)
+        self.dox.undoNthTask(pos)
         # resave and refresh
         self.saveAndRefresh()
     def saveAndRefresh(self):

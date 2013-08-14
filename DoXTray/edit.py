@@ -10,10 +10,10 @@ from add import *
 from PyQt4 import QtCore, QtGui
 
 class edit(add):
-    def __init__(self, dox, id):
+    def __init__(self, dox, pos):
         # create add window
         add.__init__(self, dox)
-        self.taskObj = dox.getTask(id)
+        self.taskObj = dox.getNthTask(pos)
         # replace title and button
         self.setWindowTitle("DoX: Edit task...")
         self.addButton.setText("&Edit")
@@ -27,7 +27,7 @@ class edit(add):
         args = parseArgs(shlex.split(string))
         if len(args):
             # expand args tuple when passed to editTask
-            self.dox.editTask(self.taskObj.id, *args)
+            self.dox.editTask(self.taskObj.id, *args[1:])
             # resave
             self.dox.saveTasks()
             # trigger refresh for list window

@@ -210,11 +210,11 @@ class lists(QtGui.QMainWindow):
         return self.controlTabs
     def refresh(self):
         # do tasks table first, then done table
-        for table in [(self.taskTable, self.taskTableLabel, self.dox.getAllTasks()), (self.doneTable, self.doneTableLabel, self.dox.getAllTasks(False))]:
+        for table in [(self.taskTable, self.taskTableLabel, True), (self.doneTable, self.doneTableLabel, False)]:
             # flush table
             table[0].setRowCount(0)
             # fetch all tasks
-            tasks = table[2]
+            tasks = self.dox.getAllTasks(table[2])
             # apply priority filter
             pri = self.filterPriCombo.currentIndex()
             tasks = [x for x in tasks if x.pri >= pri]
@@ -247,8 +247,8 @@ class lists(QtGui.QMainWindow):
             if len(tasks):
                 # apply sort if set
                 sorts = [(self.sortACombo.currentIndex(), self.sortACheck.isChecked()),
-                        (self.sortBCombo.currentIndex(), self.sortBCheck.isChecked()),
-                        (self.sortCCombo.currentIndex(), self.sortCCheck.isChecked())]
+                         (self.sortBCombo.currentIndex(), self.sortBCheck.isChecked()),
+                         (self.sortCCombo.currentIndex(), self.sortCCheck.isChecked())]
                 # reverse sort arguments (so first sort field is applied last but appears first)
                 sorts.reverse()
                 # apply each sort in turn
@@ -269,7 +269,7 @@ class lists(QtGui.QMainWindow):
                 count = 0
                 for taskObj in tasks:
                     # cell values
-                    cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
+                    cells = [str(self.dox.idToPos(taskObj.id, table[2])), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
                              prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
                     column = 0
                     for cell in cells:
@@ -300,9 +300,9 @@ class lists(QtGui.QMainWindow):
         # if not setting selection programatically
         if not self.selectChangeOverride:
             # get selected IDs
-            ids = self.tasksFromSelection()
+            posList = self.tasksFromSelection()
             # nothing selected
-            if len(ids) == 0:
+            if len(posList) == 0:
                 self.infoContent.setText("Select a task on the left.")
                 # disable all controls
                 self.infoDoneButton.setEnabled(False)
@@ -313,10 +313,10 @@ class lists(QtGui.QMainWindow):
                 self.sortMovePosEdit.setEnabled(False)
                 self.sortMovePosButton.setEnabled(False)
             # one row selected, show details
-            elif len(ids) == 1:
-                id = ids[0]
+            elif len(posList) == 1:
+                pos = posList[0]
                 # fetch from correct table
-                taskObj = self.dox.getTask(int(id), isTasks)
+                taskObj = self.dox.getNthTask(pos, isTasks)
                 pris = ["Low", "Medium", "High", "Critical"]
                 # convert a URL into an <a> tag with correct link
                 def linkify(match):
@@ -344,32 +344,32 @@ class lists(QtGui.QMainWindow):
                 self.infoDoneButton.setEnabled(True)
                 self.infoEditButton.setEnabled(isTasks)
                 self.infoDeleteButton.setEnabled(True)
-                self.sortMoveUpButton.setEnabled(isTasks and not id == 1)
-                self.sortMoveDownButton.setEnabled(isTasks and not id == self.dox.getCount())
-                self.sortMovePosEdit.setEnabled(isTasks)
-                self.sortMovePosButton.setEnabled(isTasks)
+                self.sortMoveUpButton.setEnabled(isTasks and not pos == 1 and not self.sortACombo.currentIndex())
+                self.sortMoveDownButton.setEnabled(isTasks and not pos == self.dox.getCount() and not self.sortACombo.currentIndex())
+                self.sortMovePosEdit.setEnabled(isTasks and not self.sortACombo.currentIndex())
+                self.sortMovePosButton.setEnabled(isTasks and not self.sortACombo.currentIndex())
                 # update move position spinbox to current position
-                self.sortMovePosEdit.setValue(id)
+                self.sortMovePosEdit.setValue(pos)
             # multiple rows selected
             else:
-                self.infoContent.setText("{} tasks selected.".format(len(ids)))
+                self.infoContent.setText("{} tasks selected.".format(len(posList)))
                 # only enable multiple delete and completion
                 self.infoDoneButton.setEnabled(True)
                 self.infoEditButton.setEnabled(False)
                 self.infoDeleteButton.setEnabled(True)
-                # enable move up/down if one continuous block selection
+                # enable move up/down if one continuous block selection, and no sorting enabled
                 count = -1
-                for id in ids:
+                for pos in sorted(posList):
                     if count == -1:
-                        count = id
-                    elif id > count + 1:
+                        count = pos
+                    elif pos > count + 1:
                         self.sortMoveUpButton.setEnabled(False)
                         self.sortMoveDownButton.setEnabled(False)
                         return
                     else:
                         count += 1
-                self.sortMoveUpButton.setEnabled(isTasks and 1 not in ids)
-                self.sortMoveDownButton.setEnabled(isTasks and self.dox.getCount() not in ids)
+                self.sortMoveUpButton.setEnabled(isTasks and 1 not in posList and not self.sortACombo.currentIndex())
+                self.sortMoveDownButton.setEnabled(isTasks and self.dox.getCount() not in posList and not self.sortACombo.currentIndex())
                 # don't allow move to position
                 self.sortMovePosEdit.setEnabled(False)
                 self.sortMovePosButton.setEnabled(False)
@@ -389,40 +389,40 @@ class lists(QtGui.QMainWindow):
         # done tasks show an Undo button
         self.infoDoneButton.setText("Undo" if index == 1 else "Done")
     def infoDoneClicked(self):
-        # get selected IDs
-        ids = self.tasksFromSelection()
+        # get selected positions
+        posList = self.tasksFromSelection()
         # use correct table
         isDone = self.listTabs.currentIndex() == 0
         # confirm if changing multiple tasks
-        confirm = len(ids) == 1 or QtGui.QMessageBox.question(self, "DoX: {} tasks".format("Done" if isDone else "Undo"),
-                                                              "Are you sure you want to {}mark {} tasks as complete?".format("" if isDone else "un", len(ids)),
-                                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes
+        confirm = len(posList) == 1 or QtGui.QMessageBox.question(self, "DoX: {} tasks".format("Done" if isDone else "Undo"),
+                                                                  "Are you sure you want to {}mark {} tasks as complete?".format("" if isDone else "un", len(posList)),
+                                                                  QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes
         if confirm:
             # do in reverse to avoid ID conflicts
-            for id in sorted(ids, reverse=True):
+            for pos in sorted(posList, reverse=True):
                 if isDone:
-                    self.dox.doneTask(id)
+                    self.dox.doneNthTask(pos)
                 else:
-                    self.dox.undoTask(id)
+                    self.dox.undoNthTask(pos)
             # resave and refresh
             self.saveAndRefresh()
     def infoEditClicked(self):
         # row selected (option only available with single selections)
-        id = self.tasksFromSelection()[0]
+        pos = self.tasksFromSelection()[0]
         # make new edit window
-        self.editWindow = edit(self.dox, id)
+        self.editWindow = edit(self.dox, pos)
         self.connect(self.editWindow, QtCore.SIGNAL("refresh()"), self.refresh)
         self.editWindow.show()
     def infoDeleteClicked(self):
-        # get selected IDs
-        ids = self.tasksFromSelection()
+        # get selected positions
+        posList = self.tasksFromSelection()
         # confirm deletion
-        confirm = QtGui.QMessageBox.question(self, "DoX: Delete task", "Are you sure you want to delete {}?".format("this task" if len(ids) == 1 else "these {} tasks".format(len(ids))),
+        confirm = QtGui.QMessageBox.question(self, "DoX: Delete task", "Are you sure you want to delete {}?".format("this task" if len(posList) == 1 else "these {} tasks".format(len(posList))),
                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No)
         if confirm == QtGui.QMessageBox.Yes:
             # do in reverse to avoid ID conflicts
-            for id in sorted(ids, reverse=True):
-                self.dox.deleteTask(id, self.listTabs.currentIndex() == 0)
+            for pos in sorted(posList, reverse=True):
+                self.dox.deleteNthTask(pos, self.listTabs.currentIndex() == 0)
             # resave and refresh
             self.saveAndRefresh()
     def sortComboChanged(self):
@@ -449,61 +449,57 @@ class lists(QtGui.QMainWindow):
         self.refresh()
     def sortMoveUpClicked(self):
         # list of rows selected
-        ids = self.tasksFromSelection()
-        # sort into ID order
-        ids.sort()
-        # move each task up one
-        for id in ids:
-            self.dox.moveTask(id, id - 1)
+        posList = self.tasksFromSelection()
+        # move each task up one, top to bottom
+        for pos in sorted(posList):
+            self.dox.moveNthTask(pos, pos - 1)
         # resave and refresh
         self.saveAndRefresh()
         # focus table
         self.taskTable.setFocus()
         # reselect rows
-        for id in ids:
-            # -1 for move up, -1 for 0-based row, 1-based id
-            self.taskTable.setCurrentCell(id - 2, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
+        for pos in posList:
+            # -1 for move up, -1 for 0-based row, 1-based ID
+            self.taskTable.setCurrentCell(pos - 2, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
     def sortMoveDownClicked(self):
         # list of rows selected
-        ids = self.tasksFromSelection()
-        # sort into reverse ID order
-        ids.sort(reverse=True)
-        # move each task down one
-        for id in ids:
-            self.dox.moveTask(id, id + 1)
+        posList = self.tasksFromSelection()
+        # move each task down one, bottom to top
+        for pos in sorted(posList, reverse=True):
+            self.dox.moveNthTask(pos, pos + 1)
         # resave and refresh
         self.saveAndRefresh()
         # focus table
         self.taskTable.setFocus()
         # reselect rows
-        for id in ids:
-            # +1 for move down, -1 for 0-based row, 1-based id
-            self.taskTable.setCurrentCell(id, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
+        for pos in posList:
+            # +1 for move down, -1 for 0-based row, 1-based ID
+            self.taskTable.setCurrentCell(pos, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
     def sortMovePosClicked(self):
         # row selected (option only available with single selections)
-        id = self.tasksFromSelection()[0]
+        pos = self.tasksFromSelection()[0]
         # read position from spinbox
-        pos = int(self.sortMovePosEdit.value())
+        newPos = int(self.sortMovePosEdit.value())
         # if the values are different
-        if not id == pos:
+        if not pos == newPos:
             # move the task
-            self.dox.moveTask(id, pos)
+            self.dox.moveNthTask(pos, newPos)
             # resave and refresh
             self.saveAndRefresh()
             # focus table
             self.taskTable.setFocus()
-            # reselect task at new position, -1 for 0-based row, 1-based id
-            self.taskTable.setCurrentCell(pos - 1, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
+            # reselect task at new position, -1 for 0-based row, 1-based ID
+            self.taskTable.setCurrentCell(newPos - 1, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
     def tasksFromSelection(self):
         # select from correct table
         table = self.doneTable if self.listTabs.currentIndex() == 1 else self.taskTable
         # list of rows selected
-        ids = []
-        for i in table.selectedIndexes():
-            id = int(table.item(i.row(), 0).text())
-            if id not in ids:
-                ids.append(id)
-        return ids
+        posList = []
+        for index in table.selectedIndexes():
+            pos = int(table.item(index.row(), 0).text())
+            if pos not in posList:
+                posList.append(pos)
+        return posList
     @QtCore.pyqtSlot(QtCore.QUrl)
     def handleURL(self, url):
         # tag filter request
@@ -511,8 +507,6 @@ class lists(QtGui.QMainWindow):
             tag = url.path()[1:]
             # switch to filter tab
             self.controlTabs.setCurrentIndex(2)
-            # enable filtering by tag
-            self.filterTagCheck.setChecked(True)
             # append tag to current list
             if self.filterTagEdit.text():
                 self.filterTagEdit.setText(self.filterTagEdit.text() + " " + quote(tag))

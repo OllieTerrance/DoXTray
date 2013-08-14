@@ -225,7 +225,7 @@ class add(QtGui.QMainWindow):
         except ValueError:
             # can't parse, don't set
             tags = []
-        self.stringEdit.setText(formatArgs(title, desc, pri, due, repeat, tags))
+        self.stringEdit.setText(formatArgs(None, title, desc, pri, due, repeat, tags))
     def fieldsDown(self):
         try:
             # parse with shlex
@@ -249,7 +249,7 @@ class add(QtGui.QMainWindow):
             # don't process any further
             return
         # process arguments with standard parser
-        title, desc, pri, due, repeat, tags = parseArgs(args)
+        id, title, desc, pri, due, repeat, tags = parseArgs(args)
         # set basic fields
         self.titleEdit.setText(title)
         self.descEdit.setText(desc)
@@ -288,14 +288,14 @@ class add(QtGui.QMainWindow):
         string = str(self.stringEdit.text())
         args = parseArgs(shlex.split(string))
         if len(args):
-            # expand args tuple when passed to addTask
-            self.dox.addTask(*args)
+            # expand args tuple when passed to addTask, skipping ID
+            self.dox.addTask(*args[1:])
             # resave
             self.dox.saveTasks()
             # trigger refresh for list window
             self.emit(QtCore.SIGNAL("refresh()"))
             # show notification
-            self.emit(QtCore.SIGNAL("info(QString, QString)"), args[0], "Task added successfully.")
+            self.emit(QtCore.SIGNAL("info(QString, QString)"), args[1], "Task added successfully.")
         # hide window again
         self.closeWindow()
     def closeWindow(self):
