@@ -45,6 +45,10 @@ class lists(QtGui.QMainWindow):
             table.verticalHeader().setVisible(False)
             tables.append(table)
         self.taskTable, self.doneTable = tables
+        self.taskTableLabel = QtGui.QLabel("No tasks to show under the current filters.")
+        self.taskTableLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.doneTableLabel = QtGui.QLabel("No tasks to show under the current filters.")
+        self.doneTableLabel.setAlignment(QtCore.Qt.AlignCenter)
         # tabs
         self.listTabs = QtGui.QTabWidget()
         taskTab = QtGui.QWidget()
@@ -54,9 +58,13 @@ class lists(QtGui.QMainWindow):
         # layouts
         taskLayout = QtGui.QVBoxLayout()
         taskLayout.addWidget(self.taskTable)
+        taskLayout.addWidget(self.taskTableLabel)
+        self.taskTableLabel.hide()
         taskTab.setLayout(taskLayout)
         doneLayout = QtGui.QVBoxLayout()
         doneLayout.addWidget(self.doneTable)
+        doneLayout.addWidget(self.doneTableLabel)
+        self.doneTableLabel.hide()
         doneTab.setLayout(doneLayout)
         # shortcuts
         switchMainTabs1 = QtGui.QShortcut(self)
@@ -162,6 +170,7 @@ class lists(QtGui.QMainWindow):
         sortLayout.addLayout(sortLayoutC)
         sortLayout.addLayout(moveLayout1)
         sortLayout.addLayout(moveLayout2)
+        sortLayout.addStretch()
         sortTab.setLayout(sortLayout)
         filterLayout = QtGui.QVBoxLayout()
         filterLayout.addWidget(filterPriLabel)
@@ -170,6 +179,7 @@ class lists(QtGui.QMainWindow):
         filterLayout.addWidget(self.filterDueCombo)
         filterLayout.addWidget(filterTagLabel)
         filterLayout.addWidget(self.filterTagEdit)
+        filterLayout.addStretch()
         filterTab.setLayout(filterLayout)
         # shortcuts
         switchSideTabs1 = QtGui.QShortcut(self)
@@ -198,11 +208,11 @@ class lists(QtGui.QMainWindow):
         return self.controlTabs
     def refresh(self):
         # do tasks table first, then done table
-        for table in [(self.taskTable, self.dox.getAllTasks()), (self.doneTable, self.dox.getAllTasks(False))]:
+        for table in [(self.taskTable, self.taskTableLabel, self.dox.getAllTasks()), (self.doneTable, self.doneTableLabel, self.dox.getAllTasks(False))]:
             # flush table
             table[0].setRowCount(0)
             # fetch all tasks
-            tasks = table[1]
+            tasks = table[2]
             # apply priority filter
             pri = self.filterPriCombo.currentIndex()
             tasks = [x for x in tasks if x.pri >= pri]
@@ -227,40 +237,50 @@ class lists(QtGui.QMainWindow):
             # no due date
             elif due == 6:
                 tasks = [x for x in tasks if not x.due]
+            # apply tag filter if set
             if self.filterTagEdit.text():
                 tags = shlex.split(self.filterTagEdit.text())
                 tasks = [x for x in tasks if set(x.tags).intersection(set(tags))]
-            # apply sort if set
-            sorts = [(self.sortACombo.currentIndex(), self.sortACheck.isChecked()),
-                    (self.sortBCombo.currentIndex(), self.sortBCheck.isChecked()),
-                    (self.sortCCombo.currentIndex(), self.sortCCheck.isChecked())]
-            # reverse sort arguments (so first sort field is applied last but appears first)
-            sorts.reverse()
-            # apply each sort in turn
-            for sort in sorts:
-                if sort[0]:
-                    fields = ["title", "pri", "due", "tags"]
-                    field = fields[sort[0] - 1]
-                    # sort with undefined items at bottom regardless of order
-                    withField = sorted([x for x in tasks if not getattr(x, field) is None], key=(lambda x: getattr(x, field)), reverse=sort[1])
-                    withoutField = [x for x in tasks if getattr(x, field) is None]
-                    tasks = withField + withoutField
-            # reallocate table
-            table[0].setRowCount(len(tasks))
-            # loop through tasks
-            count = 0
-            for taskObj in tasks:
-                # cell values
-                cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
-                         prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
-                column = 0
-                for cell in cells:
-                    # set each cell
-                    table[0].setItem(count, column, QtGui.QTableWidgetItem(cell))
-                    column += 1
-                count += 1
-            # resize columns
-            table[0].resizeColumnsToContents()
+            # if still tasks to show
+            if len(tasks):
+                # apply sort if set
+                sorts = [(self.sortACombo.currentIndex(), self.sortACheck.isChecked()),
+                        (self.sortBCombo.currentIndex(), self.sortBCheck.isChecked()),
+                        (self.sortCCombo.currentIndex(), self.sortCCheck.isChecked())]
+                # reverse sort arguments (so first sort field is applied last but appears first)
+                sorts.reverse()
+                # apply each sort in turn
+                for sort in sorts:
+                    if sort[0]:
+                        fields = ["title", "pri", "due", "tags"]
+                        field = fields[sort[0] - 1]
+                        # sort with undefined items at bottom regardless of order
+                        withField = sorted([x for x in tasks if not getattr(x, field) is None], key=(lambda x: getattr(x, field)), reverse=sort[1])
+                        withoutField = [x for x in tasks if getattr(x, field) is None]
+                        tasks = withField + withoutField
+                # show table if previously hidden
+                table[1].hide()
+                table[0].show()
+                # reallocate table
+                table[0].setRowCount(len(tasks))
+                # loop through tasks
+                count = 0
+                for taskObj in tasks:
+                    # cell values
+                    cells = [str(taskObj.id), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
+                             prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
+                    column = 0
+                    for cell in cells:
+                        # set each cell
+                        table[0].setItem(count, column, QtGui.QTableWidgetItem(cell))
+                        column += 1
+                    count += 1
+                # resize columns
+                table[0].resizeColumnsToContents()
+            else:
+                # hide table
+                table[0].hide()
+                table[1].show()
         # update move position spinbox maximum value
         self.sortMovePosEdit.setMaximum(self.dox.getCount())
     def saveAndRefresh(self):
