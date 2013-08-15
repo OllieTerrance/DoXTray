@@ -10,7 +10,6 @@ from edit import *
 from PyQt4 import QtCore, QtGui
 
 class lists(QtGui.QMainWindow):
-    selectChangeOverride = False
     def __init__(self, dox, worker):
         QtGui.QMainWindow.__init__(self)
         self.dox = dox
@@ -45,6 +44,7 @@ class lists(QtGui.QMainWindow):
             table.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
             table.setShowGrid(False)
             table.verticalHeader().setVisible(False)
+            table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
             tables.append(table)
         self.taskTable, self.doneTable = tables
         self.taskTableLabel = QtGui.QLabel("No tasks to show under the current filters.")
@@ -75,7 +75,9 @@ class lists(QtGui.QMainWindow):
         switchMainTabs2.setKey("Ctrl+Shift+Tab")
         # connections
         self.taskTable.itemSelectionChanged.connect(self.taskSelectionChanged)
+        self.taskTable.customContextMenuRequested.connect(self.makeMenu)
         self.doneTable.itemSelectionChanged.connect(self.doneSelectionChanged)
+        self.doneTable.customContextMenuRequested.connect(self.makeMenu)
         self.listTabs.currentChanged.connect(self.tabSwitched)
         switchMainTabs1.activated.connect(self.switchMainTab)
         switchMainTabs2.activated.connect(self.switchMainTab)
@@ -292,87 +294,116 @@ class lists(QtGui.QMainWindow):
         self.emit(QtCore.SIGNAL("listsSaved()"))
         # refresh lists
         self.refresh()
+    def makeMenu(self, pos):
+        # menu shown when right-clicking rows in the table
+        contextMenu = QtGui.QMenu()
+        # different menus if selected tasks or not
+        posList = self.tasksFromSelection()
+        if len(posList) == 0:
+            # not right-clicking on a task, show add option
+            addAction = contextMenu.addAction("&Add task...")
+            addAction.triggered.connect(self.triggerAddTask)
+            contextMenu.setDefaultAction(addAction)
+        else:
+            # selected tasks
+            if len(posList) == 1:
+                titleAction = contextMenu.addAction(self.dox.getNthTask(posList[0], self.listTabs.currentIndex() == 0).title)
+            else:
+                titleAction = contextMenu.addAction("{} tasks selected".format(len(posList)))
+            titleAction.setEnabled(False)
+            contextMenu.addSeparator()
+            # show edit option only for a single task
+            if len(posList) == 1:
+                editAction = contextMenu.addAction("&Edit task")
+                editAction.triggered.connect(self.infoEditClicked)
+            doneAction = contextMenu.addAction("&Undo task" if self.listTabs.currentIndex() == 1 else "Mark &done")
+            doneAction.triggered.connect(self.infoDoneClicked)
+            deleteAction = contextMenu.addAction("De&lete task")
+            deleteAction.triggered.connect(self.infoDeleteClicked)
+            # default to editing tasks if available, else completing
+            contextMenu.setDefaultAction(editAction if len(posList) == 1 else doneAction)
+        # show the menu
+        table = self.doneTable if self.listTabs.currentIndex() == 1 else self.taskTable
+        contextMenu.exec_(table.viewport().mapToGlobal(pos))
     def taskSelectionChanged(self):
         self.selectionChanged(True)
     def doneSelectionChanged(self):
         self.selectionChanged(False)
     def selectionChanged(self, isTasks):
-        # if not setting selection programatically
-        if not self.selectChangeOverride:
-            # get selected IDs
-            posList = self.tasksFromSelection()
-            # nothing selected
-            if len(posList) == 0:
-                self.infoContent.setText("Select a task on the left.")
-                # disable all controls
-                self.infoDoneButton.setEnabled(False)
-                self.infoEditButton.setEnabled(False)
-                self.infoDeleteButton.setEnabled(False)
-                self.sortMoveUpButton.setEnabled(False)
-                self.sortMoveDownButton.setEnabled(False)
-                self.sortMovePosEdit.setEnabled(False)
-                self.sortMovePosButton.setEnabled(False)
-            # one row selected, show details
-            elif len(posList) == 1:
-                pos = posList[0]
-                # fetch from correct table
-                taskObj = self.dox.getNthTask(pos, isTasks)
-                pris = ["Low", "Medium", "High", "Critical"]
-                # convert a URL into an <a> tag with correct link
-                def linkify(match):
-                    # group 0 is entire match
-                    href = match.group(0)
-                    # no protocol, default to http://
-                    if not match.group(1):
-                        href = "http://" + href
-                    # return <a> tag
-                    return "<a href=\"" + href.replace("\"", "%22") + "\">" + html.escape(match.group(0)) + "</a>"
-                # linkify all URLs, including ones that look like links (e.g. "foo.com")
-                descWrap = re.sub("([a-z]+://)?([a-z\-\+]+\.)+[a-z]{2,6}([/#?]\S*[^\.,\s\[\]\(\)])*", linkify, taskObj.desc, flags=re.IGNORECASE)
-                # HTML new lines
-                descWrap = descWrap.replace("\n", "<br/>")
-                # link tags to internal protocol for tag filtering
-                tagWrap = ["<a href=\"dox://tag/{0}\">{0}</a>".format(x) for x in taskObj.tags]
-                # set new content
-                self.infoContent.setText("<b>{}</b><br/><br/>{}Priority: {} ({}){}{}{}".format(taskObj.title,
-                                                                                               descWrap + "<br/><br/>" if descWrap else "",
-                                                                                               pris[taskObj.pri], taskObj.pri,
-                                                                                               "<br/>Due: " + prettyDue(taskObj.due) if taskObj.due else "",
-                                                                                               "<br/>Repeat: " + prettyRepeat(taskObj.repeat) if taskObj.repeat else "",
-                                                                                               "<br/><br/>" + "  ".join(tagWrap) if tagWrap else ""))
-                # enable multiple delete and completion, plus others if tasks (not done)
-                self.infoDoneButton.setEnabled(True)
-                self.infoEditButton.setEnabled(isTasks)
-                self.infoDeleteButton.setEnabled(True)
-                self.sortMoveUpButton.setEnabled(isTasks and not pos == 1 and not self.sortACombo.currentIndex())
-                self.sortMoveDownButton.setEnabled(isTasks and not pos == self.dox.getCount() and not self.sortACombo.currentIndex())
-                self.sortMovePosEdit.setEnabled(isTasks and not self.sortACombo.currentIndex())
-                self.sortMovePosButton.setEnabled(isTasks and not self.sortACombo.currentIndex())
-                # update move position spinbox to current position
-                self.sortMovePosEdit.setValue(pos)
-            # multiple rows selected
-            else:
-                self.infoContent.setText("{} tasks selected.".format(len(posList)))
-                # only enable multiple delete and completion
-                self.infoDoneButton.setEnabled(True)
-                self.infoEditButton.setEnabled(False)
-                self.infoDeleteButton.setEnabled(True)
-                # enable move up/down if one continuous block selection, and no sorting enabled
-                count = -1
-                for pos in sorted(posList):
-                    if count == -1:
-                        count = pos
-                    elif pos > count + 1:
-                        self.sortMoveUpButton.setEnabled(False)
-                        self.sortMoveDownButton.setEnabled(False)
-                        return
-                    else:
-                        count += 1
-                self.sortMoveUpButton.setEnabled(isTasks and 1 not in posList and not self.sortACombo.currentIndex())
-                self.sortMoveDownButton.setEnabled(isTasks and self.dox.getCount() not in posList and not self.sortACombo.currentIndex())
-                # don't allow move to position
-                self.sortMovePosEdit.setEnabled(False)
-                self.sortMovePosButton.setEnabled(False)
+        # get selected IDs
+        posList = self.tasksFromSelection()
+        # nothing selected
+        if len(posList) == 0:
+            self.infoContent.setText("Select a task on the left.")
+            # disable all controls
+            self.infoDoneButton.setEnabled(False)
+            self.infoEditButton.setEnabled(False)
+            self.infoDeleteButton.setEnabled(False)
+            self.sortMoveUpButton.setEnabled(False)
+            self.sortMoveDownButton.setEnabled(False)
+            self.sortMovePosEdit.setEnabled(False)
+            self.sortMovePosButton.setEnabled(False)
+        # one row selected, show details
+        elif len(posList) == 1:
+            pos = posList[0]
+            # fetch from correct table
+            taskObj = self.dox.getNthTask(pos, isTasks)
+            pris = ["Low", "Medium", "High", "Critical"]
+            # convert a URL into an <a> tag with correct link
+            def linkify(match):
+                # group 0 is entire match
+                href = match.group(0)
+                # no protocol, default to http://
+                if not match.group(1):
+                    href = "http://" + href
+                # return <a> tag
+                return "<a href=\"" + href.replace("\"", "%22") + "\">" + html.escape(match.group(0)) + "</a>"
+            # linkify all URLs, including ones that look like links (e.g. "foo.com")
+            descWrap = re.sub("([a-z]+://)?([a-z\-\+]+\.)+[a-z]{2,6}([/#?]\S*[^\.,\s\[\]\(\)])*", linkify, taskObj.desc, flags=re.IGNORECASE)
+            # HTML new lines
+            descWrap = descWrap.replace("\n", "<br/>")
+            # link tags to internal protocol for tag filtering
+            tagWrap = ["<a href=\"dox://tag/{0}\">{0}</a>".format(x) for x in taskObj.tags]
+            # set new content
+            self.infoContent.setText("<b>{}</b><br/><br/>{}Priority: {} ({}){}{}{}".format(taskObj.title,
+                                                                                           descWrap + "<br/><br/>" if descWrap else "",
+                                                                                           pris[taskObj.pri], taskObj.pri,
+                                                                                           "<br/>Due: " + prettyDue(taskObj.due) if taskObj.due else "",
+                                                                                           "<br/>Repeat: " + prettyRepeat(taskObj.repeat) if taskObj.repeat else "",
+                                                                                           "<br/><br/>" + "  ".join(tagWrap) if tagWrap else ""))
+            # enable multiple delete and completion, plus others if tasks (not done)
+            self.infoDoneButton.setEnabled(True)
+            self.infoEditButton.setEnabled(isTasks)
+            self.infoDeleteButton.setEnabled(True)
+            self.sortMoveUpButton.setEnabled(isTasks and not pos == 1 and not self.sortACombo.currentIndex())
+            self.sortMoveDownButton.setEnabled(isTasks and not pos == self.dox.getCount() and not self.sortACombo.currentIndex())
+            self.sortMovePosEdit.setEnabled(isTasks and not self.sortACombo.currentIndex())
+            self.sortMovePosButton.setEnabled(isTasks and not self.sortACombo.currentIndex())
+            # update move position spinbox to current position
+            self.sortMovePosEdit.setValue(pos)
+        # multiple rows selected
+        else:
+            self.infoContent.setText("{} tasks selected.".format(len(posList)))
+            # only enable multiple delete and completion
+            self.infoDoneButton.setEnabled(True)
+            self.infoEditButton.setEnabled(False)
+            self.infoDeleteButton.setEnabled(True)
+            # enable move up/down if one continuous block selection, and no sorting enabled
+            count = -1
+            for pos in sorted(posList):
+                if count == -1:
+                    count = pos
+                elif pos > count + 1:
+                    self.sortMoveUpButton.setEnabled(False)
+                    self.sortMoveDownButton.setEnabled(False)
+                    return
+                else:
+                    count += 1
+            self.sortMoveUpButton.setEnabled(isTasks and 1 not in posList and not self.sortACombo.currentIndex())
+            self.sortMoveDownButton.setEnabled(isTasks and self.dox.getCount() not in posList and not self.sortACombo.currentIndex())
+            # don't allow move to position
+            self.sortMovePosEdit.setEnabled(False)
+            self.sortMovePosButton.setEnabled(False)
     def switchMainTab(self):
         # toggle tab index (1 - 1 = 0, 1 - 0 = 1)
         self.listTabs.setCurrentIndex(1 - self.listTabs.currentIndex())
@@ -388,6 +419,8 @@ class lists(QtGui.QMainWindow):
         otherTable.clearSelection()
         # done tasks show an Undo button
         self.infoDoneButton.setText("Undo" if index == 1 else "Done")
+    def triggerAddTask(self):
+        self.emit(QtCore.SIGNAL("addTask()"))
     def infoDoneClicked(self):
         # get selected positions
         posList = self.tasksFromSelection()

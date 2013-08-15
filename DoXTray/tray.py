@@ -99,6 +99,7 @@ class tray(QtGui.QSystemTrayIcon):
         self.connect(self.addWindow, QtCore.SIGNAL("info(QString, QString)"), self.info)
         self.connect(self, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         self.connect(self.addWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
+        self.connect(self.listsWindow, QtCore.SIGNAL("addTask()"), self.addTask)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.makeMenu)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.fileMonitor.listsSaved)
         # start polling
