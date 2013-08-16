@@ -76,6 +76,7 @@ class lists(QtGui.QMainWindow):
         # connections
         self.taskTable.itemSelectionChanged.connect(self.taskSelectionChanged)
         self.taskTable.customContextMenuRequested.connect(self.makeMenu)
+        self.taskTable.cellDoubleClicked.connect(self.infoEditClicked)
         self.doneTable.itemSelectionChanged.connect(self.doneSelectionChanged)
         self.doneTable.customContextMenuRequested.connect(self.makeMenu)
         self.listTabs.currentChanged.connect(self.tabSwitched)
@@ -312,16 +313,16 @@ class lists(QtGui.QMainWindow):
                 titleAction = contextMenu.addAction("{} tasks selected".format(len(posList)))
             titleAction.setEnabled(False)
             contextMenu.addSeparator()
-            # show edit option only for a single task
-            if len(posList) == 1:
+            # show edit option only for a single, incomplete task
+            if self.listTabs.currentIndex() == 0 and len(posList) == 1:
                 editAction = contextMenu.addAction("&Edit task")
                 editAction.triggered.connect(self.infoEditClicked)
-            doneAction = contextMenu.addAction("&Undo task" if self.listTabs.currentIndex() == 1 else "Mark &done")
+            doneAction = contextMenu.addAction("&Undo task{}".format("s" if len(posList) > 1 else "") if self.listTabs.currentIndex() == 1 else "Mark &done")
             doneAction.triggered.connect(self.infoDoneClicked)
-            deleteAction = contextMenu.addAction("De&lete task")
+            deleteAction = contextMenu.addAction("De&lete task{}".format("s" if len(posList) > 1 else ""))
             deleteAction.triggered.connect(self.infoDeleteClicked)
             # default to editing tasks if available, else completing
-            contextMenu.setDefaultAction(editAction if len(posList) == 1 else doneAction)
+            contextMenu.setDefaultAction(editAction if self.listTabs.currentIndex() == 0 and len(posList) == 1 else None)
         # show the menu
         table = self.doneTable if self.listTabs.currentIndex() == 1 else self.taskTable
         contextMenu.exec_(table.viewport().mapToGlobal(pos))
