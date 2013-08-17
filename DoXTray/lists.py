@@ -295,7 +295,7 @@ class lists(QtGui.QMainWindow):
         self.emit(QtCore.SIGNAL("listsSaved()"))
         # refresh lists
         self.refresh()
-    def makeMenu(self, pos):
+    def makeMenu(self, loc):
         # menu shown when right-clicking rows in the table
         contextMenu = QtGui.QMenu()
         # different menus if selected tasks or not
@@ -321,11 +321,27 @@ class lists(QtGui.QMainWindow):
             doneAction.triggered.connect(self.infoDoneClicked)
             deleteAction = contextMenu.addAction("De&lete task{}".format("s" if len(posList) > 1 else ""))
             deleteAction.triggered.connect(self.infoDeleteClicked)
+            # show move up/down if one continuous block selection, and no sorting enabled
+            show = True
+            count = -1
+            for pos in sorted(posList):
+                if count == -1:
+                    count = pos
+                elif pos > count + 1:
+                    show = False
+                else:
+                    count += 1
+            if show:
+                contextMenu.addSeparator()
+                moveUpAction = contextMenu.addAction("Move u&p")
+                moveUpAction.triggered.connect(self.sortMoveUpClicked)
+                moveDownAction = contextMenu.addAction("Move do&wn")
+                moveDownAction.triggered.connect(self.sortMoveDownClicked)
             # default to editing tasks if available, else completing
             contextMenu.setDefaultAction(editAction if self.listTabs.currentIndex() == 0 and len(posList) == 1 else None)
         # show the menu
         table = self.doneTable if self.listTabs.currentIndex() == 1 else self.taskTable
-        contextMenu.exec_(table.viewport().mapToGlobal(pos))
+        contextMenu.exec_(table.viewport().mapToGlobal(loc))
     def taskSelectionChanged(self):
         self.selectionChanged(True)
     def doneSelectionChanged(self):
