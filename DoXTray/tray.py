@@ -21,19 +21,18 @@ class fileMonitor(QtCore.QThread):
         self.emit(QtCore.SIGNAL("refresh()"))
     def run(self):
         while True:
-            # tasks list has been modified since last check
-            if self.dox.tasksFileLastMod() > self.fileLastMod:
-                # reload tasks from file
-                self.dox.loadTasks()
-                # update last mod. time
-                self.fileLastMod = self.dox.tasksFileLastMod()
-                # trigger refresh for list window
-                self.emit(QtCore.SIGNAL("refresh()"))
+            self.checkFile()
             # sleep for a bit
             time.sleep(5)
-    def listsSaved(self):
-        # update last mod. time now without triggering refresh
-        self.fileLastMod = self.dox.tasksFileLastMod()
+    def checkFile(self):
+        # tasks list has been modified since last check
+        if self.dox.tasksFileLastMod() > self.fileLastMod:
+            # reload tasks from file
+            self.dox.loadTasks()
+            # update last mod. time
+            self.fileLastMod = self.dox.tasksFileLastMod()
+            # trigger refresh for list and edit windows
+            self.emit(QtCore.SIGNAL("refresh()"))
 
 class dueMonitor(QtCore.QThread):
     def __init__(self, dox):
@@ -99,7 +98,7 @@ class tray(QtGui.QSystemTrayIcon):
         self.connect(self.addWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         self.connect(self.listsWindow, QtCore.SIGNAL("addTask()"), self.addTask)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.makeMenu)
-        self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.fileMonitor.listsSaved)
+        self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.fileMonitor.checkFile)
         # start polling
         self.fileMonitor.start()
         self.dueMonitor.start()

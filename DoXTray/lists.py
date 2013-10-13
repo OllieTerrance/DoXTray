@@ -443,40 +443,46 @@ class lists(QtGui.QMainWindow):
     def infoDoneClicked(self):
         # get selected positions
         posList = self.tasksFromSelection()
-        # use correct table
-        isDone = self.listTabs.currentIndex() == 0
-        # confirm if changing multiple tasks
-        confirm = len(posList) == 1 or QtGui.QMessageBox.question(self, "DoX: {} tasks".format("Done" if isDone else "Undo"),
-                                                                  "Are you sure you want to {}mark {} tasks as complete?".format("" if isDone else "un", len(posList)),
-                                                                  QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes
-        if confirm:
-            # do in reverse to avoid ID conflicts
-            for pos in sorted(posList, reverse=True):
-                if isDone:
-                    self.dox.doneNthTask(pos)
-                else:
-                    self.dox.undoNthTask(pos)
-            # resave and refresh
-            self.saveAndRefresh()
+        if len(posList):
+            # use correct table
+            isDone = self.listTabs.currentIndex() == 0
+            # confirm if changing multiple tasks
+            confirm = len(posList) == 1 or QtGui.QMessageBox.question(self, "DoX: {} tasks".format("Done" if isDone else "Undo"),
+                                                                      "Are you sure you want to {}mark {} tasks as complete?".format("" if isDone else "un", len(posList)),
+                                                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes
+            if confirm:
+                # do in reverse to avoid ID conflicts
+                for pos in sorted(posList, reverse=True):
+                    if isDone:
+                        self.dox.doneNthTask(pos)
+                    else:
+                        self.dox.undoNthTask(pos)
+                # resave and refresh
+                self.saveAndRefresh()
     def infoEditClicked(self):
         # row selected (option only available with single selections)
-        pos = self.tasksFromSelection()[0]
-        # make new edit window
-        self.editWindow = edit(self.dox, pos)
-        self.connect(self.editWindow, QtCore.SIGNAL("refresh()"), self.refresh)
-        self.editWindow.show()
+        posList = self.tasksFromSelection()
+        if len(posList):
+            pos = self.tasksFromSelection()[0]
+            # make new edit window
+            self.editWindow = edit(self.dox, pos)
+            self.connect(self.editWindow, QtCore.SIGNAL("refresh()"), self.refresh)
+            self.editWindow.connect(self, QtCore.SIGNAL("listsSaved()"), self.editWindow.refresh)
+            self.editWindow.connect(self.worker, QtCore.SIGNAL("refresh()"), self.editWindow.refresh)
+            self.editWindow.show()
     def infoDeleteClicked(self):
         # get selected positions
         posList = self.tasksFromSelection()
-        # confirm deletion
-        confirm = QtGui.QMessageBox.question(self, "DoX: Delete task", "Are you sure you want to delete {}?".format("this task" if len(posList) == 1 else "these {} tasks".format(len(posList))),
-                                             QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No)
-        if confirm == QtGui.QMessageBox.Yes:
-            # do in reverse to avoid ID conflicts
-            for pos in sorted(posList, reverse=True):
-                self.dox.deleteNthTask(pos, self.listTabs.currentIndex() == 0)
-            # resave and refresh
-            self.saveAndRefresh()
+        if len(posList):
+            # confirm deletion
+            confirm = QtGui.QMessageBox.question(self, "DoX: Delete task", "Are you sure you want to delete {}?".format("this task" if len(posList) == 1 else "these {} tasks".format(len(posList))),
+                                                 QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No)
+            if confirm == QtGui.QMessageBox.Yes:
+                # do in reverse to avoid ID conflicts
+                for pos in sorted(posList, reverse=True):
+                    self.dox.deleteNthTask(pos, self.listTabs.currentIndex() == 0)
+                # resave and refresh
+                self.saveAndRefresh()
     def sortComboChanged(self):
         # read sort selections
         sort = [self.sortACombo.currentIndex(), self.sortBCombo.currentIndex(), self.sortCCombo.currentIndex()]
