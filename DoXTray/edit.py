@@ -1,9 +1,7 @@
 # some other useful imports
 import shlex, sys
-# add DoX core to path
-sys.path.append("dox")
 # main class import
-from dox import *
+from DoX.core import *
 # recycle add window
 from add import *
 # interface with PyQt

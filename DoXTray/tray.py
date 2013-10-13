@@ -1,9 +1,7 @@
 # some other useful imports
 import os, sys, webbrowser
-# add DoX core to path
-sys.path.append("dox")
 # main class import
-from dox import *
+from DoX.core import *
 # window class imports
 from add import *
 from lists import *

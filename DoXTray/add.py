@@ -1,9 +1,7 @@
 # some other useful imports
 import datetime, shlex, sys, time
-# add DoX core to path
-sys.path.append("dox")
 # main class import
-from dox import *
+from DoX.core import *
 # interface with PyQt
 from PyQt4 import QtCore, QtGui
 

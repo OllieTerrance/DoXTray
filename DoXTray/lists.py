@@ -1,9 +1,7 @@
 # some other useful imports
 import html, re, shlex, sys
-# add DoX core to path
-sys.path.append("dox")
 # main class import
-from dox import *
+from DoX.core import *
 # edit window class import
 from edit import *
 # interface with PyQt
