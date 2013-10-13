@@ -36,10 +36,11 @@ class lists(QtGui.QMainWindow):
     def buildMain(self):
         # controls
         tables = []
+        columns = [["#", "Task", "!", "Due", "Repeat", "Tags"], ["#", "Task", "!", "Due", "Tags"]]
         for i in range(2):
             table = QtGui.QTableWidget()
-            table.setColumnCount(6)
-            table.setHorizontalHeaderLabels(["#", "Task", "!", "Due", "Repeat", "Tags"])
+            table.setColumnCount(len(columns[i]))
+            table.setHorizontalHeaderLabels(columns[i])
             table.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
             table.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
             table.setShowGrid(False)
@@ -272,8 +273,11 @@ class lists(QtGui.QMainWindow):
                 count = 0
                 for taskObj in tasks:
                     # cell values
-                    cells = [str(self.dox.idToPos(taskObj.id, table[2])), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>",
-                             prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>", ", ".join(taskObj.tags) if len(taskObj.tags) else "<none>"]
+                    cells = [str(self.dox.idToPos(taskObj.id, table[2])), taskObj.title, str(taskObj.pri), prettyDue(taskObj.due) if taskObj.due else "<none>"]
+                    # if tasks, add repeat column
+                    if table[2]:
+                        cells.append(prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>")
+                    cells.append(", ".join(taskObj.tags) if len(taskObj.tags) else "<none>")
                     column = 0
                     for cell in cells:
                         # set each cell
