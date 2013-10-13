@@ -89,6 +89,7 @@ class add(QtGui.QMainWindow):
         self.repeatEdit.editingFinished.connect(self.repeatEditFinished)
         self.repeatCombo.currentIndexChanged.connect(self.repeatComboChanged)
         self.repeatCheck.stateChanged.connect(self.fieldsUp)
+        self.tagsEdit.textChanged.connect(self.tagsEditChanged)
         self.tagsEdit.editingFinished.connect(self.tagsEditFinished)
         # return new layout
         return fieldsLayout
@@ -177,16 +178,11 @@ class add(QtGui.QMainWindow):
         # left blank, revert to no repeat
         else:
             self.repeatCombo.setCurrentIndex(0)
-    def tagsEditFinished(self):
+    def tagsEditChanged(self):
         try:
             # attempt to split tags
             shlex.split(str(self.tagsEdit.text()))
-            # clear error highlight if previously set
-            self.tagsEdit.setStyleSheet("")
-            self.tagsEdit.setToolTip("")
         except ValueError:
-            # can't parse, refocus until complete
-            self.tagsEdit.setFocus()
             # highlight error
             self.tagsEdit.setStyleSheet("background-color: #F88;")
             # attempt to guess fault with string
@@ -199,8 +195,23 @@ class add(QtGui.QMainWindow):
                 self.tagsEdit.setToolTip("Unbalanced backslash?")
             # don't process any further
             return
+        # clear error highlight if previously set
+        self.tagsEdit.setStyleSheet("")
+        self.tagsEdit.setToolTip("")
+        # remember current input as good
+        self.lastValidTags = self.tagsEdit.text()
         # update string field
         self.fieldsUp()
+    def tagsEditFinished(self):
+        try:
+            # attempt to split tags
+            shlex.split(str(self.tagsEdit.text()))
+        except ValueError:
+            # can't parse, reset to last known valid value
+            self.tagsEdit.setText(self.lastValidTags)
+            self.tagsEdit.setFocus()
+            # update string field
+            self.fieldsUp()
     def fieldsUp(self, isRepeat=False):
         if not isRepeat:
             # clear status of repeat edit if there is one
