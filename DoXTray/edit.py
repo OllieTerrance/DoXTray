@@ -7,10 +7,10 @@ from add import *
 # interface with PyQt
 from PyQt4 import QtCore, QtGui
 
-class edit(add):
+class editWindow(addWindow):
     def __init__(self, dox, pos):
         # create add window
-        add.__init__(self, dox)
+        addWindow.__init__(self, dox)
         self.taskObj = dox.getNthTask(pos)
         # replace title and button
         self.setWindowTitle("DoX: Edit task...")

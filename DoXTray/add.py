@@ -5,7 +5,7 @@ from DoX.core import *
 # interface with PyQt
 from PyQt4 import QtCore, QtGui
 
-class add(QtGui.QMainWindow):
+class addWindow(QtGui.QMainWindow):
     def __init__(self, dox):
         QtGui.QMainWindow.__init__(self)
         self.dox = dox

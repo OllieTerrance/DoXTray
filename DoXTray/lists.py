@@ -7,7 +7,7 @@ from edit import *
 # interface with PyQt
 from PyQt4 import QtCore, QtGui
 
-class lists(QtGui.QMainWindow):
+class listsWindow(QtGui.QMainWindow):
     def __init__(self, dox, worker):
         QtGui.QMainWindow.__init__(self)
         self.dox = dox
@@ -475,7 +475,7 @@ class lists(QtGui.QMainWindow):
         if len(posList):
             pos = self.tasksFromSelection()[0]
             # make new edit window
-            self.editWindow = edit(self.dox, pos)
+            self.editWindow = editWindow(self.dox, pos)
             self.connect(self.editWindow, QtCore.SIGNAL("refresh()"), self.refresh)
             self.editWindow.connect(self, QtCore.SIGNAL("listsSaved()"), self.editWindow.refresh)
             self.editWindow.connect(self.worker, QtCore.SIGNAL("refresh()"), self.editWindow.refresh)

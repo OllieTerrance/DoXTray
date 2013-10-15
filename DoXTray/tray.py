@@ -75,6 +75,61 @@ class dueMonitor(QtCore.QThread):
             # if nothing to notify about, sleep for a while
             time.sleep(60 if noTasks else 10)
 
+class aboutWindow(QtGui.QDialog):
+    def __init__(self):
+        QtGui.QDialog.__init__(self)
+        self.setWindowFlags(QtCore.Qt.WindowSystemMenuHint | QtCore.Qt.WindowTitleHint)
+        self.setWindowTitle("DoX: About")
+        self.setWindowIcon(QtGui.QIcon("check.png"))
+        self.resize(222, 132)
+        self.setGeometry(QtGui.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter, self.size(),
+                                                  QtGui.QDesktopWidget().availableGeometry()))
+        # main widget
+        self.setLayout(self.build())
+    def build(self):
+        # controls
+        titleLabel = QtGui.QLabel("<span style=\"font-size: 12pt; font-weight: bold;\">DoX</span>&nbsp; dev")
+        titleLabel.setAlignment(QtCore.Qt.AlignCenter)
+        descLabel = QtGui.QLabel("This is DoX, as in <b>do &lt;X&gt;</b>, where <b>X</b> is a<br/>task, but also pronounceable like \"docks\".")
+        descLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.okButton = QtGui.QPushButton("Ok")
+        self.aboutButton = QtGui.QPushButton("About")
+        self.authorButton = QtGui.QPushButton("Author")
+        self.githubButton = QtGui.QPushButton("GitHub")
+        # layouts
+        bottomLayout1 = QtGui.QHBoxLayout()
+        bottomLayout1.addWidget(self.okButton)
+        bottomLayout1.addWidget(self.aboutButton)
+        bottomLayout2 = QtGui.QHBoxLayout()
+        bottomLayout2.addWidget(self.authorButton)
+        bottomLayout2.addWidget(self.githubButton)
+        self.mainLayout = QtGui.QVBoxLayout()
+        self.mainLayout.setSizeConstraint(QtGui.QLayout.SetFixedSize);
+        self.mainLayout.addWidget(titleLabel)
+        self.mainLayout.addWidget(descLabel)
+        self.mainLayout.addLayout(bottomLayout1)
+        self.mainLayout.addLayout(bottomLayout2)
+        # connections
+        self.okButton.clicked.connect(self.close)
+        self.aboutButton.clicked.connect(self.about)
+        self.authorButton.clicked.connect(self.author)
+        self.githubButton.clicked.connect(self.github)
+        # return new layout
+        return self.mainLayout
+    def about(self):
+        webbrowser.open("http://dox.uk.to/about.html")
+        self.close()
+    def author(self):
+        webbrowser.open("http://terrance.uk.to")
+        self.close()
+    def github(self):
+        webbrowser.open("https://github.com/OllieTerrance/DoXTray")
+        self.close()
+    def closeEvent(self, event):
+        # don't actually close - window is reused
+        self.hide()
+        event.ignore()
+
 class tray(QtGui.QSystemTrayIcon):
     def __init__(self, dox):
         QtGui.QSystemTrayIcon.__init__(self)
@@ -85,8 +140,9 @@ class tray(QtGui.QSystemTrayIcon):
         self.dox = dox
         self.fileMonitor = fileMonitor(dox)
         self.dueMonitor = dueMonitor(dox)
-        self.addWindow = add(dox)
-        self.listsWindow = lists(dox, self.fileMonitor)
+        self.addWindow = addWindow(dox)
+        self.aboutWindow = aboutWindow()
+        self.listsWindow = listsWindow(dox, self.fileMonitor)
         # connections
         self.activated.connect(self.activate)
         # signal listeners
@@ -137,7 +193,9 @@ class tray(QtGui.QSystemTrayIcon):
         doneAction = self.mainMenu.addAction("Edi&t done.txt")
         doneAction.triggered.connect(self.editDone)
         self.mainMenu.addSeparator()
-        exitAction = self.mainMenu.addAction("E&xit DoX")
+        aboutAction = self.mainMenu.addAction("A&bout DoX")
+        aboutAction.triggered.connect(self.about)
+        exitAction = self.mainMenu.addAction("E&xit")
         exitAction.triggered.connect(QtGui.QApplication.quit)
         # default to listing tasks
         self.mainMenu.setDefaultAction(listsAction)
@@ -184,6 +242,11 @@ class tray(QtGui.QSystemTrayIcon):
     def editDone(self):
         # open a text editor with tasks.txt
         webbrowser.open(os.path.join(os.path.expanduser("~"), "DoX", "done.txt"))
+    def about(self):
+        # bring window to front
+        self.aboutWindow.show()
+        self.aboutWindow.raise_()
+        self.aboutWindow.okButton.setFocus()
     def info(self, title, desc):
         # information popup
         self.showMessage("DoX: " + title, desc)
