@@ -211,6 +211,9 @@ class lists(QtGui.QMainWindow):
         # return new tabs
         return self.controlTabs
     def refresh(self):
+        # save current selections
+        posList = self.tasksFromSelection()
+        idList = list(map(lambda x: self.dox.posToId(x, self.listTabs.currentIndex() == 0), posList))
         # do tasks table first, then done table
         for table in [(self.taskTable, self.taskTableLabel, True), (self.doneTable, self.doneTableLabel, False)]:
             # flush table
@@ -290,6 +293,13 @@ class lists(QtGui.QMainWindow):
                 table[1].show()
         # update move position spinbox maximum value
         self.sortMovePosEdit.setMaximum(self.dox.getCount())
+        # restore old selections
+        posList = list(map(lambda x: self.dox.idToPos(x, self.listTabs.currentIndex() == 0), idList))
+        # reselect rows
+        for pos in posList:
+            if pos:
+                # -1 for 0-based row, 1-based ID
+                self.taskTable.setCurrentCell(pos - 1, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
     def saveAndRefresh(self):
         # save tasks
         self.dox.saveTasks()
@@ -475,7 +485,7 @@ class lists(QtGui.QMainWindow):
         posList = self.tasksFromSelection()
         if len(posList):
             # confirm deletion
-            confirm = QtGui.QMessageBox.question(self, "DoX: Delete task", "Are you sure you want to delete {}?".format("this task" if len(posList) == 1 else "these {} tasks".format(len(posList))),
+            confirm = QtGui.QMessageBox.question(self, "DoX: Delete task" + ("" if len(posList) == 1 else "s"), "Are you sure you want to delete {}?".format("this task" if len(posList) == 1 else "these {} tasks".format(len(posList))),
                                                  QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No)
             if confirm == QtGui.QMessageBox.Yes:
                 # do in reverse to avoid ID conflicts

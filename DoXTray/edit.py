@@ -30,8 +30,6 @@ class edit(add):
         self.fieldsDown()
     # catch refresh event
     def refresh(self):
-        print(self.dox.getTask(self.taskObj.id))
-        print(self.dox.getTask(self.taskObj.id, False))
         # clear any warnings
         if self.dox.getTask(self.taskObj.id):
             self.showWarning(0)
