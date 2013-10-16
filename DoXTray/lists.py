@@ -46,9 +46,10 @@ class listsWindow(QtGui.QMainWindow):
             table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
             tables.append(table)
         self.taskTable, self.doneTable = tables
-        self.taskTableLabel = QtGui.QLabel("No tasks to show under the current filters.")
+        self.taskTableLabel = QtGui.QLabel("No tasks to show under the current filters.  Why not <a href=\"dox://add\">add a new task</a>?")
         self.taskTableLabel.setAlignment(QtCore.Qt.AlignCenter)
-        self.doneTableLabel = QtGui.QLabel("No tasks to show under the current filters.")
+        self.taskTableLabel.setOpenExternalLinks(True)
+        self.doneTableLabel = QtGui.QLabel("No tasks to show under the current filters.  Go and complete some!")
         self.doneTableLabel.setAlignment(QtCore.Qt.AlignCenter)
         # tabs
         self.listTabs = QtGui.QTabWidget()
@@ -570,8 +571,11 @@ class listsWindow(QtGui.QMainWindow):
         return posList
     @QtCore.pyqtSlot(QtCore.QUrl)
     def handleURL(self, url):
+        # add task request
+        if url.host() == "add":
+            self.triggerAddTask()
         # tag filter request
-        if url.host() == "tag":
+        elif url.host() == "tag":
             tag = url.path()[1:]
             # switch to filter tab
             self.controlTabs.setCurrentIndex(2)
