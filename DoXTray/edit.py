@@ -1,7 +1,7 @@
 # some other useful imports
 import shlex, sys
-# main class import
-from DoX.core import *
+# utility class import
+from DoX.util import *
 # recycle add window
 from add import *
 # interface with PyQt

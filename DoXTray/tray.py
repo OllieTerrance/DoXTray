@@ -5,6 +5,7 @@ from DoX.core import *
 # window class imports
 from add import *
 from lists import *
+from settings import *
 # threading class imports
 from threads import *
 # interface with PyQt
@@ -39,7 +40,7 @@ class aboutWindow(QtGui.QDialog):
         bottomLayout2.addWidget(self.authorButton)
         bottomLayout2.addWidget(self.githubButton)
         self.mainLayout = QtGui.QVBoxLayout()
-        self.mainLayout.setSizeConstraint(QtGui.QLayout.SetFixedSize);
+        self.mainLayout.setSizeConstraint(QtGui.QLayout.SetFixedSize)
         self.mainLayout.addWidget(titleLabel)
         self.mainLayout.addWidget(descLabel)
         self.mainLayout.addLayout(bottomLayout1)
@@ -71,13 +72,18 @@ class tray(QtGui.QSystemTrayIcon):
         # components
         self.setIcon(QtGui.QIcon("check.png"))
         self.setToolTip("DoX")
-        # construct other features
+        # core
         self.dox = dox
-        self.fileMonitor = fileMonitor(dox)
-        self.dueMonitor = dueMonitor(dox)
-        self.addWindow = addWindow(dox)
+        self.settings = settings()
+        self.settings.load()
+        # threads
+        self.fileMonitor = fileMonitor(self.dox)
+        self.dueMonitor = dueMonitor(self.dox)
+        # windows
         self.aboutWindow = aboutWindow()
-        self.listsWindow = listsWindow(dox, self.fileMonitor)
+        self.addWindow = addWindow(self.dox)
+        self.listsWindow = listsWindow(self.dox, self.fileMonitor)
+        self.settingsWindow = settingsWindow(self.settings)
         # connections
         self.activated.connect(self.activate)
         # signal listeners
@@ -93,7 +99,7 @@ class tray(QtGui.QSystemTrayIcon):
         # start polling
         self.fileMonitor.start()
         self.dueMonitor.start()
-        # create context menu
+        # context menu
         self.makeMenu()
         # show tray icon
         self.show()
@@ -123,15 +129,17 @@ class tray(QtGui.QSystemTrayIcon):
                 markAction.setData(pos)
                 markAction.triggered.connect(self.markUndo)
         self.mainMenu.addSeparator()
+        settingsAction = self.mainMenu.addAction("Edit &settings")
+        settingsAction.triggered.connect(self.editSettings)
         tasksAction = self.mainMenu.addAction("&Edit tasks.txt")
         tasksAction.triggered.connect(self.editTasks)
         doneAction = self.mainMenu.addAction("Edi&t done.txt")
         doneAction.triggered.connect(self.editDone)
         self.mainMenu.addSeparator()
-        aboutAction = self.mainMenu.addAction("A&bout DoX")
+        aboutAction = self.mainMenu.addAction("A&bout DoX...")
         aboutAction.triggered.connect(self.about)
         exitAction = self.mainMenu.addAction("E&xit")
-        exitAction.triggered.connect(QtGui.QApplication.quit)
+        exitAction.triggered.connect(self.exit)
         # default to listing tasks
         self.mainMenu.setDefaultAction(listsAction)
         # assign the menu
@@ -171,6 +179,11 @@ class tray(QtGui.QSystemTrayIcon):
         self.emit(QtCore.SIGNAL("refresh()"))
         # update context menu
         self.makeMenu()
+    def editSettings(self):
+        # bring window to front
+        self.settingsWindow.show()
+        self.settingsWindow.raise_()
+        self.settingsWindow.saveButton.setFocus()
     def editTasks(self):
         # open a text editor with tasks.txt
         webbrowser.open(os.path.join(os.path.expanduser("~"), "DoX", "tasks.txt"))
@@ -195,6 +208,9 @@ class tray(QtGui.QSystemTrayIcon):
         # middle-clicked
         elif reason == 4:
             self.addTask()
+    def exit(self):
+        self.settings.save()
+        QtGui.QApplication.quit()
 
 if __name__ == "__main__":
     # make Qt application
