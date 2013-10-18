@@ -8,9 +8,10 @@ from edit import *
 from PyQt4 import QtCore, QtGui
 
 class listsWindow(QtGui.QMainWindow):
-    def __init__(self, dox, worker):
+    def __init__(self, dox, settings, worker):
         QtGui.QMainWindow.__init__(self)
         self.dox = dox
+        self.settings = settings
         self.worker = worker
         self.setWindowTitle("DoX: List tasks")
         self.setWindowIcon(QtGui.QIcon("check.png"))
@@ -281,9 +282,29 @@ class listsWindow(QtGui.QMainWindow):
                         cells.append(prettyRepeat(taskObj.repeat) if taskObj.repeat else "<none>")
                     cells.append(", ".join(taskObj.tags) if len(taskObj.tags) else "<none>")
                     column = 0
+                    # cell background colours
+                    colours = ["dff0d8", "fcf8e3", "f2dede"]
+                    colour = None
+                    if self.settings.get("taskTableRowHighlight") == "pri" and taskObj.pri > 0:
+                        colour = colours[taskObj.pri - 1]
+                    elif self.settings.get("taskTableRowHighlight") == "due":
+                        now = datetime.datetime.now()
+                        today = datetime.datetime.combine(now.date(), datetime.time())
+                        dueDay = datetime.datetime.combine(taskObj.due[0].date(), datetime.time())
+                        if taskObj.due:
+                        # if task is due now
+                            if (taskObj.due[1] and taskObj.due[0] < now) or (not taskObj.due[1] and taskObj.due[0] <= today):
+                                colour = colours[2]
+                            elif dueDay <= today + datetime.timedelta(days=1):
+                                colour = colours[1]
+                            else:
+                                colour = colours[0]
                     for cell in cells:
                         # set each cell
-                        table[0].setItem(count, column, QtGui.QTableWidgetItem(cell))
+                        cell =  QtGui.QTableWidgetItem(cell)
+                        if colour:
+                            cell.setData(QtCore.Qt.BackgroundRole, QtGui.QColor("#" + colour))
+                        table[0].setItem(count, column, cell)
                         column += 1
                     count += 1
                 # resize columns

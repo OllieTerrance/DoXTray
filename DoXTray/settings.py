@@ -140,6 +140,8 @@ class settingsWindow(QtGui.QDialog):
         # commit changes
         self.settings.save()
         self.close()
+        # trigger refresh for all windows
+        self.emit(QtCore.SIGNAL("refresh()"))
     def closeEvent(self, event):
         # don't actually close - window is reused
         self.hide()

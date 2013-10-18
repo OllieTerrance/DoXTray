@@ -82,7 +82,7 @@ class tray(QtGui.QSystemTrayIcon):
         # windows
         self.aboutWindow = aboutWindow()
         self.addWindow = addWindow(self.dox)
-        self.listsWindow = listsWindow(self.dox, self.fileMonitor)
+        self.listsWindow = listsWindow(self.dox, self.settings, self.fileMonitor)
         self.settingsWindow = settingsWindow(self.settings)
         # connections
         self.activated.connect(self.activate)
@@ -93,6 +93,7 @@ class tray(QtGui.QSystemTrayIcon):
         self.connect(self.addWindow, QtCore.SIGNAL("info(QString, QString)"), self.info)
         self.connect(self, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         self.connect(self.addWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
+        self.connect(self.settingsWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         self.connect(self.listsWindow, QtCore.SIGNAL("addTask()"), self.addTask)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.makeMenu)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.fileMonitor.checkFile)
