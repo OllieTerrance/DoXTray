@@ -287,18 +287,17 @@ class listsWindow(QtGui.QMainWindow):
                     colour = None
                     if self.settings.get("taskTableRowHighlight") == "pri" and taskObj.pri > 0:
                         colour = colours[taskObj.pri - 1]
-                    elif self.settings.get("taskTableRowHighlight") == "due":
+                    elif self.settings.get("taskTableRowHighlight") == "due" and taskObj.due:
                         now = datetime.datetime.now()
                         today = datetime.datetime.combine(now.date(), datetime.time())
                         dueDay = datetime.datetime.combine(taskObj.due[0].date(), datetime.time())
-                        if taskObj.due:
                         # if task is due now
-                            if (taskObj.due[1] and taskObj.due[0] < now) or (not taskObj.due[1] and taskObj.due[0] <= today):
-                                colour = colours[2]
-                            elif dueDay <= today + datetime.timedelta(days=1):
-                                colour = colours[1]
-                            else:
-                                colour = colours[0]
+                        if (taskObj.due[1] and taskObj.due[0] < now) or (not taskObj.due[1] and taskObj.due[0] <= today):
+                            colour = colours[2]
+                        elif dueDay <= today + datetime.timedelta(days=1):
+                            colour = colours[1]
+                        else:
+                            colour = colours[0]
                     for cell in cells:
                         # set each cell
                         cell =  QtGui.QTableWidgetItem(cell)
