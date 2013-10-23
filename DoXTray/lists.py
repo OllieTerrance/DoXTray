@@ -133,6 +133,13 @@ class listsWindow(QtGui.QMainWindow):
         self.filterDueCombo.addItems(["Show all tasks", "Due today", "Due tomorrow", "Due in the next week", "Overdue", "With a due date", "No due date"])
         filterTagLabel = QtGui.QLabel("Restrict list to tasks with assigned tags:")
         self.filterTagEdit = QtGui.QLineEdit()
+        filterHighlightLabel = QtGui.QLabel("Highlight table rows by property:")
+        self.filterHighlightCombo = QtGui.QComboBox()
+        self.filterHighlightCombo.addItems(["None", "Priority", "Due date"])
+        if self.settings.get("taskTableRowHighlight") == "pri":
+            self.filterHighlightCombo.setCurrentIndex(1)
+        elif self.settings.get("taskTableRowHighlight") == "due":
+            self.filterHighlightCombo.setCurrentIndex(2)
         # tabs
         self.controlTabs = QtGui.QTabWidget()
         infoTab = QtGui.QWidget()
@@ -178,6 +185,9 @@ class listsWindow(QtGui.QMainWindow):
         sortLayout.addLayout(moveLayout2)
         sortLayout.addStretch()
         sortTab.setLayout(sortLayout)
+        filterHighlightLayout = QtGui.QHBoxLayout()
+        filterHighlightLayout.addWidget(filterHighlightLabel)
+        filterHighlightLayout.addWidget(self.filterHighlightCombo)
         filterLayout = QtGui.QVBoxLayout()
         filterLayout.addWidget(filterPriLabel)
         filterLayout.addWidget(self.filterPriCombo)
@@ -185,6 +195,7 @@ class listsWindow(QtGui.QMainWindow):
         filterLayout.addWidget(self.filterDueCombo)
         filterLayout.addWidget(filterTagLabel)
         filterLayout.addWidget(self.filterTagEdit)
+        filterLayout.addLayout(filterHighlightLayout)
         filterLayout.addStretch()
         filterTab.setLayout(filterLayout)
         # shortcuts
@@ -208,6 +219,7 @@ class listsWindow(QtGui.QMainWindow):
         self.filterPriCombo.currentIndexChanged.connect(self.refresh)
         self.filterDueCombo.currentIndexChanged.connect(self.refresh)
         self.filterTagEdit.editingFinished.connect(self.refresh)
+        self.filterHighlightCombo.currentIndexChanged.connect(self.filterHighlightChanged)
         switchSideTabs1.activated.connect(self.switchSideTab)
         switchSideTabs2.activated.connect(self.switchSideTabRev)
         # return new tabs
@@ -579,6 +591,16 @@ class listsWindow(QtGui.QMainWindow):
             self.taskTable.setFocus()
             # reselect task at new position, -1 for 0-based row, 1-based ID
             self.taskTable.setCurrentCell(newPos - 1, 0, QtGui.QItemSelectionModel.Select | QtGui.QItemSelectionModel.Rows)
+    def filterHighlightChanged(self):
+        # update highlighting setting
+        highlight = "none"
+        if self.filterHighlightCombo.currentIndex() == 1:
+            highlight = "pri"
+        elif self.filterHighlightCombo.currentIndex() == 2:
+            highlight = "due"
+        self.settings.set("taskTableRowHighlight", highlight)
+        # refresh with new highlight
+        self.refresh()
     def tasksFromSelection(self):
         # select from correct table
         table = self.doneTable if self.listTabs.currentIndex() == 1 else self.taskTable

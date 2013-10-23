@@ -83,7 +83,6 @@ class tray(QtGui.QSystemTrayIcon):
         self.aboutWindow = aboutWindow()
         self.addWindow = addWindow(self.dox)
         self.listsWindow = listsWindow(self.dox, self.settings, self.fileMonitor)
-        self.settingsWindow = settingsWindow(self.settings)
         # connections
         self.activated.connect(self.activate)
         # signal listeners
@@ -93,7 +92,6 @@ class tray(QtGui.QSystemTrayIcon):
         self.connect(self.addWindow, QtCore.SIGNAL("info(QString, QString)"), self.info)
         self.connect(self, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         self.connect(self.addWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
-        self.connect(self.settingsWindow, QtCore.SIGNAL("refresh()"), self.listsWindow.refresh)
         self.connect(self.listsWindow, QtCore.SIGNAL("addTask()"), self.addTask)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.makeMenu)
         self.connect(self.listsWindow, QtCore.SIGNAL("listsSaved()"), self.fileMonitor.checkFile)
@@ -130,8 +128,6 @@ class tray(QtGui.QSystemTrayIcon):
                 markAction.setData(pos)
                 markAction.triggered.connect(self.markUndo)
         self.mainMenu.addSeparator()
-        settingsAction = self.mainMenu.addAction("Edit &settings")
-        settingsAction.triggered.connect(self.editSettings)
         tasksAction = self.mainMenu.addAction("&Edit tasks.txt")
         tasksAction.triggered.connect(self.editTasks)
         doneAction = self.mainMenu.addAction("Edi&t done.txt")
@@ -180,11 +176,6 @@ class tray(QtGui.QSystemTrayIcon):
         self.emit(QtCore.SIGNAL("refresh()"))
         # update context menu
         self.makeMenu()
-    def editSettings(self):
-        # bring window to front
-        self.settingsWindow.show()
-        self.settingsWindow.raise_()
-        self.settingsWindow.saveButton.setFocus()
     def editTasks(self):
         # open a text editor with tasks.txt
         webbrowser.open(os.path.join(os.path.expanduser("~"), "DoX", "tasks.txt"))
