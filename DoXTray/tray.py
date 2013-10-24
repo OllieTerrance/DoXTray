@@ -150,10 +150,6 @@ class tray(QtGui.QSystemTrayIcon):
         # bring window to front
         self.listsWindow.show()
         self.listsWindow.raise_()
-        # set initial split position
-        if not self.listsWindow.splitMoved:
-            self.listsWindow.splitWidget.moveSplitter(760, 1)
-            self.listsWindow.splitMoved = True
         self.listsWindow.refresh()
     def markDone(self):
         # fetch task associated with action

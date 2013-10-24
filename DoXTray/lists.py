@@ -19,15 +19,14 @@ class listsWindow(QtGui.QMainWindow):
         self.setGeometry(QtGui.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter, self.size(),
                                                   QtGui.QDesktopWidget().availableGeometry()))
         # main widget
-        self.splitWidget = QtGui.QSplitter()
-        self.splitWidget.addWidget(self.buildMain())
-        self.splitWidget.addWidget(self.buildSide())
-        self.splitMoved = False
         mainLayout = QtGui.QHBoxLayout()
-        mainLayout.addWidget(self.splitWidget)
+        mainLayout.addWidget(self.buildMain())
         mainWidget = QtGui.QWidget()
         mainWidget.setLayout(mainLayout)
         self.setCentralWidget(mainWidget)
+        docks = self.buildDocks()
+        for dock in docks:
+            self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
         # signal listeners
         self.connect(self.worker, QtCore.SIGNAL("refresh()"), self.refresh)
         # protocol handlers
@@ -85,7 +84,7 @@ class listsWindow(QtGui.QMainWindow):
         switchMainTabs2.activated.connect(self.switchMainTab)
         # return new tabs
         return self.listTabs
-    def buildSide(self):
+    def buildDocks(self):
         # controls
         self.infoContent = QtGui.QLabel("Select a task on the left.")
         self.infoContent.setAlignment(QtCore.Qt.AlignCenter)
@@ -140,14 +139,6 @@ class listsWindow(QtGui.QMainWindow):
             self.filterHighlightCombo.setCurrentIndex(1)
         elif self.settings.get("taskTableRowHighlight") == "due":
             self.filterHighlightCombo.setCurrentIndex(2)
-        # tabs
-        self.controlTabs = QtGui.QTabWidget()
-        infoTab = QtGui.QWidget()
-        sortTab = QtGui.QWidget()
-        filterTab = QtGui.QWidget()
-        self.controlTabs.addTab(infoTab, "Task")
-        self.controlTabs.addTab(sortTab, "Sort")
-        self.controlTabs.addTab(filterTab, "Filter")
         # layouts
         sortLayoutA = QtGui.QHBoxLayout()
         sortLayoutA.addWidget(sortALabel)
@@ -173,10 +164,9 @@ class listsWindow(QtGui.QMainWindow):
         cmdLayout.addWidget(self.infoDoneButton)
         cmdLayout.addWidget(self.infoEditButton)
         cmdLayout.addWidget(self.infoDeleteButton)
-        self.infoLayout = QtGui.QVBoxLayout()
-        self.infoLayout.addWidget(self.infoContent)
-        self.infoLayout.addLayout(cmdLayout)
-        infoTab.setLayout(self.infoLayout)
+        taskLayout = QtGui.QVBoxLayout()
+        taskLayout.addWidget(self.infoContent)
+        taskLayout.addLayout(cmdLayout)
         sortLayout = QtGui.QVBoxLayout()
         sortLayout.addLayout(sortLayoutA)
         sortLayout.addLayout(sortLayoutB)
@@ -184,7 +174,6 @@ class listsWindow(QtGui.QMainWindow):
         sortLayout.addLayout(moveLayout1)
         sortLayout.addLayout(moveLayout2)
         sortLayout.addStretch()
-        sortTab.setLayout(sortLayout)
         filterHighlightLayout = QtGui.QHBoxLayout()
         filterHighlightLayout.addWidget(filterHighlightLabel)
         filterHighlightLayout.addWidget(self.filterHighlightCombo)
@@ -197,12 +186,22 @@ class listsWindow(QtGui.QMainWindow):
         filterLayout.addWidget(self.filterTagEdit)
         filterLayout.addLayout(filterHighlightLayout)
         filterLayout.addStretch()
-        filterTab.setLayout(filterLayout)
-        # shortcuts
-        switchSideTabs1 = QtGui.QShortcut(self)
-        switchSideTabs1.setKey("Ctrl+`")
-        switchSideTabs2 = QtGui.QShortcut(self)
-        switchSideTabs2.setKey("Ctrl+Shift+`")
+        # docks
+        self.taskDock = QtGui.QDockWidget("Task")
+        self.taskDock.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
+        taskWidget = QtGui.QWidget()
+        taskWidget.setLayout(taskLayout)
+        self.taskDock.setWidget(taskWidget)
+        self.sortDock = QtGui.QDockWidget("Sort")
+        self.sortDock.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
+        sortWidget = QtGui.QWidget()
+        sortWidget.setLayout(sortLayout)
+        self.sortDock.setWidget(sortWidget)
+        self.filterDock = QtGui.QDockWidget("Filter")
+        self.filterDock.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
+        filterWidget = QtGui.QWidget()
+        filterWidget.setLayout(filterLayout)
+        self.filterDock.setWidget(filterWidget)
         # connections
         self.infoDoneButton.clicked.connect(self.infoDoneClicked)
         self.infoEditButton.clicked.connect(self.infoEditClicked)
@@ -220,10 +219,8 @@ class listsWindow(QtGui.QMainWindow):
         self.filterDueCombo.currentIndexChanged.connect(self.refresh)
         self.filterTagEdit.editingFinished.connect(self.refresh)
         self.filterHighlightCombo.currentIndexChanged.connect(self.filterHighlightChanged)
-        switchSideTabs1.activated.connect(self.switchSideTab)
-        switchSideTabs2.activated.connect(self.switchSideTabRev)
         # return new tabs
-        return self.controlTabs
+        return [self.taskDock, self.sortDock, self.filterDock]
     def refresh(self):
         # save current selections
         posList = self.tasksFromSelection()
@@ -469,12 +466,6 @@ class listsWindow(QtGui.QMainWindow):
     def switchMainTab(self):
         # toggle tab index (1 - 1 = 0, 1 - 0 = 1)
         self.listTabs.setCurrentIndex(1 - self.listTabs.currentIndex())
-    def switchSideTab(self):
-        # increase tab index (mod 3 to convert 3 to 0)
-        self.controlTabs.setCurrentIndex((self.controlTabs.currentIndex() + 1) % 3)
-    def switchSideTabRev(self):
-        # increase tab index (mod 3 to convert -1 to 2)
-        self.controlTabs.setCurrentIndex((self.controlTabs.currentIndex() - 1) % 3)
     def tabSwitched(self, index):
         # clear selection on other table (i.e. not new selected one) on switch
         otherTable = self.taskTable if index == 1 else self.doneTable
