@@ -135,9 +135,9 @@ class listsWindow(QtGui.QMainWindow):
         filterHighlightLabel = QtGui.QLabel("Highlight table rows by property:")
         self.filterHighlightCombo = QtGui.QComboBox()
         self.filterHighlightCombo.addItems(["None", "Priority", "Due date"])
-        if self.settings.get("taskTableRowHighlight") == "pri":
+        if self.settings.value("TaskTableRowHighlight") == "pri":
             self.filterHighlightCombo.setCurrentIndex(1)
-        elif self.settings.get("taskTableRowHighlight") == "due":
+        elif self.settings.value("TaskTableRowHighlight") == "due":
             self.filterHighlightCombo.setCurrentIndex(2)
         # layouts
         sortLayoutA = QtGui.QHBoxLayout()
@@ -294,9 +294,9 @@ class listsWindow(QtGui.QMainWindow):
                     # cell background colours
                     colours = ["dff0d8", "fcf8e3", "f2dede"]
                     colour = None
-                    if self.settings.get("taskTableRowHighlight") == "pri" and taskObj.pri > 0:
+                    if self.settings.value("TaskTableRowHighlight") == "pri" and taskObj.pri > 0:
                         colour = colours[taskObj.pri - 1]
-                    elif self.settings.get("taskTableRowHighlight") == "due" and taskObj.due:
+                    elif self.settings.value("TaskTableRowHighlight") == "due" and taskObj.due:
                         now = datetime.datetime.now()
                         today = datetime.datetime.combine(now.date(), datetime.time())
                         dueDay = datetime.datetime.combine(taskObj.due[0].date(), datetime.time())
@@ -589,7 +589,7 @@ class listsWindow(QtGui.QMainWindow):
             highlight = "pri"
         elif self.filterHighlightCombo.currentIndex() == 2:
             highlight = "due"
-        self.settings.set("taskTableRowHighlight", highlight)
+        self.settings.setValue("TaskTableRowHighlight", highlight)
         # refresh with new highlight
         self.refresh()
     def tasksFromSelection(self):

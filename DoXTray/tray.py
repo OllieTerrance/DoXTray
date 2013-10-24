@@ -67,15 +67,14 @@ class aboutWindow(QtGui.QDialog):
         event.ignore()
 
 class tray(QtGui.QSystemTrayIcon):
-    def __init__(self, dox):
+    def __init__(self, dox, settings):
         QtGui.QSystemTrayIcon.__init__(self)
         # components
         self.setIcon(QtGui.QIcon("check.png"))
         self.setToolTip("DoX")
         # core
         self.dox = dox
-        self.settings = settings()
-        self.settings.load()
+        self.settings = settings
         # threads
         self.fileMonitor = fileMonitor(self.dox)
         self.dueMonitor = dueMonitor(self.dox)
@@ -108,9 +107,6 @@ class tray(QtGui.QSystemTrayIcon):
         listsAction.triggered.connect(self.listTasks)
         addAction = self.mainMenu.addAction("&Add task...")
         addAction.triggered.connect(self.addTask)
-        self.mainMenu.addSeparator()
-        restoreAction = self.mainMenu.addAction("&Restore docks")
-        restoreAction.triggered.connect(self.restoreDocks)
         self.mainMenu.addSeparator()
         # submenu to quickly complete a task
         if self.dox.getCount():
@@ -154,11 +150,6 @@ class tray(QtGui.QSystemTrayIcon):
         self.listsWindow.show()
         self.listsWindow.raise_()
         self.listsWindow.refresh()
-    def restoreDocks(self):
-        # show all closed docks
-        self.listsWindow.taskDock.setVisible(True)
-        self.listsWindow.sortDock.setVisible(True)
-        self.listsWindow.filterDock.setVisible(True)
     def markDone(self):
         # fetch task associated with action
         pos = self.sender().data()
@@ -205,13 +196,19 @@ class tray(QtGui.QSystemTrayIcon):
         elif reason == 4:
             self.addTask()
     def exit(self):
-        self.settings.save()
         QtGui.QApplication.quit()
 
+class app(QtGui.QApplication):
+    def __init__(self, args):
+        QtGui.QApplication.__init__(self, args)
+        # application details for settings
+        QtCore.QCoreApplication.setOrganizationName("Ollie Terrance")
+        QtCore.QCoreApplication.setOrganizationDomain("terrance.uk.to")
+        QtCore.QCoreApplication.setApplicationName("DoX Tray")
+        self.settings = settings()
+        # start tray icon
+        self.tray = tray(dox(), self.settings)
+
 if __name__ == "__main__":
-    # make Qt application
-    app = QtGui.QApplication(sys.argv)
-    # start tray icon
-    foreground = tray(dox())
-    # execute
-    app.exec_()
+    # run application
+    app(sys.argv).exec_()
