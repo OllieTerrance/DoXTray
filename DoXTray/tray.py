@@ -146,6 +146,13 @@ class tray(QtGui.QSystemTrayIcon):
         self.addWindow.raise_()
         self.addWindow.stringEdit.setFocus()
     def listTasks(self):
+        # reposition docks
+        geometry = self.settings.value("TaskWindowGeometry")
+        if geometry:
+            self.listsWindow.restoreGeometry(geometry)
+        state = self.settings.value("TaskWindowState")
+        if state:
+            self.listsWindow.restoreState(state)
         # bring window to front
         self.listsWindow.show()
         self.listsWindow.raise_()

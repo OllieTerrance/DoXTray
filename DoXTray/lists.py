@@ -188,16 +188,19 @@ class listsWindow(QtGui.QMainWindow):
         filterLayout.addStretch()
         # docks
         self.taskDock = QtGui.QDockWidget("Task")
+        self.taskDock.setObjectName("TaskDock")
         self.taskDock.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
         taskWidget = QtGui.QWidget()
         taskWidget.setLayout(taskLayout)
         self.taskDock.setWidget(taskWidget)
         self.sortDock = QtGui.QDockWidget("Sort")
+        self.sortDock.setObjectName("SortDock")
         self.sortDock.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
         sortWidget = QtGui.QWidget()
         sortWidget.setLayout(sortLayout)
         self.sortDock.setWidget(sortWidget)
         self.filterDock = QtGui.QDockWidget("Filter")
+        self.filterDock.setObjectName("FilterDock")
         self.filterDock.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
         filterWidget = QtGui.QWidget()
         filterWidget.setLayout(filterLayout)
@@ -618,6 +621,13 @@ class listsWindow(QtGui.QMainWindow):
             else:
                 self.filterTagEdit.setText(quote(tag))
     def closeEvent(self, event):
+        # save dock positions
+        self.settings.setValue("TaskWindowGeometry", self.saveGeometry())
+        self.settings.setValue("TaskWindowState", self.saveState())
+        # hide floating docks
+        self.taskDock.setVisible(False)
+        self.sortDock.setVisible(False)
+        self.filterDock.setVisible(False)
         # don't actually close - window is reused
         self.hide()
         event.ignore()
