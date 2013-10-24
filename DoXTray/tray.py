@@ -109,6 +109,9 @@ class tray(QtGui.QSystemTrayIcon):
         addAction = self.mainMenu.addAction("&Add task...")
         addAction.triggered.connect(self.addTask)
         self.mainMenu.addSeparator()
+        restoreAction = self.mainMenu.addAction("&Restore docks")
+        restoreAction.triggered.connect(self.restoreDocks)
+        self.mainMenu.addSeparator()
         # submenu to quickly complete a task
         if self.dox.getCount():
             self.markDoneMenu = self.mainMenu.addMenu("Mark &done")
@@ -151,6 +154,11 @@ class tray(QtGui.QSystemTrayIcon):
         self.listsWindow.show()
         self.listsWindow.raise_()
         self.listsWindow.refresh()
+    def restoreDocks(self):
+        # show all closed docks
+        self.listsWindow.taskDock.setVisible(True)
+        self.listsWindow.sortDock.setVisible(True)
+        self.listsWindow.filterDock.setVisible(True)
     def markDone(self):
         # fetch task associated with action
         pos = self.sender().data()

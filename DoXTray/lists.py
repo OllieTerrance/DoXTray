@@ -447,6 +447,9 @@ class listsWindow(QtGui.QMainWindow):
             self.infoDoneButton.setEnabled(True)
             self.infoEditButton.setEnabled(False)
             self.infoDeleteButton.setEnabled(True)
+            # don't allow move to position
+            self.sortMovePosEdit.setEnabled(False)
+            self.sortMovePosButton.setEnabled(False)
             # enable move up/down if one continuous block selection, and no sorting enabled
             count = -1
             for pos in sorted(posList):
@@ -460,9 +463,6 @@ class listsWindow(QtGui.QMainWindow):
                     count += 1
             self.sortMoveUpButton.setEnabled(isTasks and 1 not in posList and not self.sortACombo.currentIndex())
             self.sortMoveDownButton.setEnabled(isTasks and self.dox.getCount() not in posList and not self.sortACombo.currentIndex())
-            # don't allow move to position
-            self.sortMovePosEdit.setEnabled(False)
-            self.sortMovePosButton.setEnabled(False)
     def switchMainTab(self):
         # toggle tab index (1 - 1 = 0, 1 - 0 = 1)
         self.listTabs.setCurrentIndex(1 - self.listTabs.currentIndex())
