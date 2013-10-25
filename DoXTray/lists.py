@@ -86,9 +86,10 @@ class listsWindow(QtGui.QMainWindow):
         return self.listTabs
     def buildDocks(self):
         # controls
-        self.infoContent = QtGui.QLabel("Select a task on the left.")
+        self.infoContent = QtGui.QLabel("No tasks selected.")
         self.infoContent.setAlignment(QtCore.Qt.AlignCenter)
         self.infoContent.setOpenExternalLinks(True)
+        self.infoContent.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse | QtCore.Qt.TextSelectableByMouse)
         self.infoContent.setWordWrap(True)
         self.infoDoneButton = QtGui.QPushButton("Done")
         self.infoDoneButton.setEnabled(False)
@@ -396,7 +397,7 @@ class listsWindow(QtGui.QMainWindow):
         posList = self.tasksFromSelection()
         # nothing selected
         if len(posList) == 0:
-            self.infoContent.setText("Select a task on the left.")
+            self.infoContent.setText("No tasks selected.")
             # disable all controls
             self.infoDoneButton.setEnabled(False)
             self.infoEditButton.setEnabled(False)
@@ -421,7 +422,7 @@ class listsWindow(QtGui.QMainWindow):
                 # return <a> tag
                 return "<a href=\"" + href.replace("\"", "%22") + "\">" + html.escape(match.group(0)) + "</a>"
             # linkify all URLs, including ones that look like links (e.g. "foo.com")
-            descWrap = re.sub("([a-z]+://)?([a-z\-\+]+\.)+[a-z]{2,6}([/#?]\S*[^\.,\s\[\]\(\)])*", linkify, taskObj.desc, flags=re.IGNORECASE)
+            descWrap = re.sub("([a-z]+:(///?)?\S+)|(([a-z]+://)?([a-z\-\+]+\.)+[a-z]{2,6}([/#?]\S*[^\.,\s\[\]\(\)])*)", linkify, taskObj.desc, flags=re.IGNORECASE)
             # HTML new lines
             descWrap = descWrap.replace("\n", "<br/>")
             # link tags to internal protocol for tag filtering
@@ -613,13 +614,15 @@ class listsWindow(QtGui.QMainWindow):
         # tag filter request
         elif url.host() == "tag":
             tag = url.path()[1:]
-            # switch to filter tab
-            self.controlTabs.setCurrentIndex(2)
+            # show filter dock if currently hidden
+            self.filterDock.setVisible(True)
             # append tag to current list
             if self.filterTagEdit.text():
                 self.filterTagEdit.setText(self.filterTagEdit.text() + " " + quote(tag))
             else:
                 self.filterTagEdit.setText(quote(tag))
+            # refresh list
+            self.refresh()
     def closeEvent(self, event):
         # save dock positions
         self.settings.setValue("TaskWindowGeometry", self.saveGeometry())
