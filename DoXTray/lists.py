@@ -100,20 +100,44 @@ class listsWindow(QtGui.QMainWindow):
         sortALabel = QtGui.QLabel("Primary sort:")
         self.sortACombo = QtGui.QComboBox()
         self.sortACombo.addItems(["No sorting", "Task", "Priority", "Due", "Tags"])
+        if self.settings.value("TaskTableSortAType") == "task":
+            self.sortACombo.setCurrentIndex(1)
+        if self.settings.value("TaskTableSortAType") == "pri":
+            self.sortACombo.setCurrentIndex(2)
+        if self.settings.value("TaskTableSortAType") == "due":
+            self.sortACombo.setCurrentIndex(3)
+        if self.settings.value("TaskTableSortAType") == "tags":
+            self.sortACombo.setCurrentIndex(4)
         self.sortACheck = QtGui.QCheckBox("Descending")
-        self.sortACheck.setEnabled(False)
+        self.sortACheck.setChecked(self.settings.value("TaskTableSortADesc", None, bool))
         sortBLabel = QtGui.QLabel("Secondary sort:")
         self.sortBCombo = QtGui.QComboBox()
         self.sortBCombo.addItems(["No sorting", "Task", "Priority", "Due", "Tags"])
         self.sortBCombo.setEnabled(False)
+        if self.settings.value("TaskTableSortBType") == "task":
+            self.sortBCombo.setCurrentIndex(1)
+        if self.settings.value("TaskTableSortBType") == "pri":
+            self.sortBCombo.setCurrentIndex(2)
+        if self.settings.value("TaskTableSortBType") == "due":
+            self.sortBCombo.setCurrentIndex(3)
+        if self.settings.value("TaskTableSortBType") == "tags":
+            self.sortBCombo.setCurrentIndex(4)
         self.sortBCheck = QtGui.QCheckBox("Descending")
-        self.sortBCheck.setEnabled(False)
+        self.sortBCheck.setChecked(self.settings.value("TaskTableSortBDesc", None, bool))
         sortCLabel = QtGui.QLabel("Tertiary sort:")
         self.sortCCombo = QtGui.QComboBox()
         self.sortCCombo.addItems(["No sorting", "Task", "Priority", "Due", "Tags"])
         self.sortCCombo.setEnabled(False)
+        if self.settings.value("TaskTableSortCType") == "task":
+            self.sortCCombo.setCurrentIndex(1)
+        if self.settings.value("TaskTableSortCType") == "pri":
+            self.sortCCombo.setCurrentIndex(2)
+        if self.settings.value("TaskTableSortCType") == "due":
+            self.sortCCombo.setCurrentIndex(3)
+        if self.settings.value("TaskTableSortCType") == "tags":
+            self.sortCCombo.setCurrentIndex(4)
         self.sortCCheck = QtGui.QCheckBox("Descending")
-        self.sortCCheck.setEnabled(False)
+        self.sortCCheck.setChecked(self.settings.value("TaskTableSortCDesc", None, bool))
         sortMoveLabel = QtGui.QLabel("Move this task:")
         self.sortMoveUpButton = QtGui.QPushButton("Up")
         self.sortMoveUpButton.setEnabled(False)
@@ -140,6 +164,7 @@ class listsWindow(QtGui.QMainWindow):
             self.filterHighlightCombo.setCurrentIndex(1)
         elif self.settings.value("TaskTableRowHighlight") == "due":
             self.filterHighlightCombo.setCurrentIndex(2)
+        self.sortChanged()
         # layouts
         sortLayoutA = QtGui.QHBoxLayout()
         sortLayoutA.addWidget(sortALabel)
@@ -210,12 +235,12 @@ class listsWindow(QtGui.QMainWindow):
         self.infoDoneButton.clicked.connect(self.infoDoneClicked)
         self.infoEditButton.clicked.connect(self.infoEditClicked)
         self.infoDeleteButton.clicked.connect(self.infoDeleteClicked)
-        self.sortACombo.currentIndexChanged.connect(self.sortComboChanged)
-        self.sortACheck.stateChanged.connect(self.refresh)
-        self.sortBCombo.currentIndexChanged.connect(self.sortComboChanged)
-        self.sortBCheck.stateChanged.connect(self.refresh)
-        self.sortCCombo.currentIndexChanged.connect(self.sortComboChanged)
-        self.sortCCheck.stateChanged.connect(self.refresh)
+        self.sortACombo.currentIndexChanged.connect(self.sortChanged)
+        self.sortACheck.stateChanged.connect(self.sortChanged)
+        self.sortBCombo.currentIndexChanged.connect(self.sortChanged)
+        self.sortBCheck.stateChanged.connect(self.sortChanged)
+        self.sortCCombo.currentIndexChanged.connect(self.sortChanged)
+        self.sortCCheck.stateChanged.connect(self.sortChanged)
         self.sortMoveUpButton.clicked.connect(self.sortMoveUpClicked)
         self.sortMoveDownButton.clicked.connect(self.sortMoveDownClicked)
         self.sortMovePosButton.clicked.connect(self.sortMovePosClicked)
@@ -521,7 +546,7 @@ class listsWindow(QtGui.QMainWindow):
                     self.dox.deleteNthTask(pos, self.listTabs.currentIndex() == 0)
                 # resave and refresh
                 self.saveAndRefresh()
-    def sortComboChanged(self):
+    def sortChanged(self):
         # read sort selections
         sort = [self.sortACombo.currentIndex(), self.sortBCombo.currentIndex(), self.sortCCombo.currentIndex()]
         # reset fields when higher sort disabled
@@ -541,6 +566,14 @@ class listsWindow(QtGui.QMainWindow):
         self.sortCCombo.setEnabled(sort[0] and sort[1])
         # enable if all three set
         self.sortCCheck.setEnabled(sort[0] and sort[1] and sort[2])
+        # save current values
+        sortEnum = ["none", "task", "pri", "due", "tags"]
+        self.settings.setValue("TaskTableSortAType", sortEnum[sort[0]])
+        self.settings.setValue("TaskTableSortADesc", self.sortACheck.isChecked())
+        self.settings.setValue("TaskTableSortBType", sortEnum[sort[1]])
+        self.settings.setValue("TaskTableSortBDesc", self.sortBCheck.isChecked())
+        self.settings.setValue("TaskTableSortCType", sortEnum[sort[2]])
+        self.settings.setValue("TaskTableSortCDesc", self.sortCCheck.isChecked())
         # refresh tables
         self.refresh()
     def sortMoveUpClicked(self):
